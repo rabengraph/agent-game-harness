@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# build-scummvm.sh — clone/update the scummvm-agent fork, build the web
+# build-scummvm.sh — clone/update the ScummVM fork, build the web
 # target, and copy artifacts into the harness.
 #
 # This script is opinionated about paths but not about emsdk setup. You
 # must have `emcc` on PATH (or source emsdk_env.sh) before running.
 #
 # Env vars:
-#   SCUMMVM_AGENT_REMOTE   git remote to clone (default: git@github.com:YOURNAME/scummvm-agent.git)
-#   SCUMMVM_AGENT_BRANCH   branch to build    (default: poc/agent-telemetry)
+#   SCUMMVM_AGENT_REMOTE   git remote to clone
+#                          (default: https://github.com/rabengraph/scummvm.git)
+#   SCUMMVM_AGENT_BRANCH   branch to build
+#                          (default: claude/scummvm-agent-harness-DKVxd)
+#
+# See the fork's engines/scumm/AGENT_HARNESS.md for the full contract.
 
 set -euo pipefail
 
@@ -16,8 +20,8 @@ VENDOR_DIR="$ROOT/vendor"
 SCUMMVM_DIR="$VENDOR_DIR/scummvm-agent"
 OUTPUT_DIR="$ROOT/web/public/scummvm"
 
-REMOTE="${SCUMMVM_AGENT_REMOTE:-git@github.com:YOURNAME/scummvm-agent.git}"
-BRANCH="${SCUMMVM_AGENT_BRANCH:-poc/agent-telemetry}"
+REMOTE="${SCUMMVM_AGENT_REMOTE:-https://github.com/rabengraph/scummvm.git}"
+BRANCH="${SCUMMVM_AGENT_BRANCH:-claude/scummvm-agent-harness-DKVxd}"
 
 log()  { printf "\033[1;36m[build-scummvm]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[build-scummvm]\033[0m %s\n" "$*" >&2; }

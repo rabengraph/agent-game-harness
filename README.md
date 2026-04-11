@@ -4,8 +4,9 @@ Agent-first browser harness for running ScummVM games with symbolic state
 exposed to AI agents (e.g. Claude).
 
 This repo is the **app shell and deployment target** for an AI-agent proof
-of concept. It pairs with a separate ScummVM fork (`scummvm-agent`) that
-adds telemetry hooks into the SCUMM engine.
+of concept. It pairs with a ScummVM fork (`rabengraph/scummvm`, branch
+`claude/scummvm-agent-harness-DKVxd`) that adds telemetry hooks into
+the SCUMM engine.
 
 The central question this POC tries to answer:
 
@@ -14,11 +15,13 @@ The central question this POC tries to answer:
 
 ## Repo split
 
-- **`scummvm-agent`** (separate repo / fork) — SCUMM engine telemetry
+- **`rabengraph/scummvm`** (fork, branch
+  `claude/scummvm-agent-harness-DKVxd`) — SCUMM engine telemetry
   hooks, C++ to JavaScript bridge, Emscripten target tweaks.
+  Canonical schema doc: `engines/scumm/AGENT_HARNESS.md`.
 - **`agent-game-harness`** (this repo) — homepage, `/game` route,
-  overlays, state panel, startup scripts, hosting config, and the
-  Claude runbook.
+  overlays, state panel, mock mode, startup scripts, hosting config,
+  and the Claude runbook.
 
 ## Quick start
 
@@ -34,6 +37,20 @@ Or:
 ```bash
 npm start
 ```
+
+### Without the fork build
+
+Use mock telemetry:
+
+```
+http://127.0.0.1:5173/routes/game.html?mock=1
+```
+
+`?mock=1` activates `web/shared/mock.js`, which drives a small fake
+adventure (3 rooms, verbs, inventory, clickable objects) that emits
+the same v1 schema as the real fork. Useful for harness-only
+development. Mock snapshots and events carry `"mock": true` so agents
+can distinguish them.
 
 ## Routes
 

@@ -43,35 +43,74 @@
     <!--
       Authoritative latest state, mirrored as JSON in the DOM.
       Agents: read window.__scummState first, fall back to this node.
+      Shape matches the fork's v1 snapshot schema (see
+      scummvm-agent/engines/scumm/AGENT_HARNESS.md §4). This is a
+      zeroed placeholder; the real runtime overwrites it.
     -->
     <script id="scumm-state" type="application/json">
 {
-  "frame": 0,
+  "schema": 1,
+  "seq": 0,
+  "t": 0,
+  "gameId": 0,
+  "gameVersion": 0,
+  "gameName": null,
   "room": 0,
-  "sceneName": null,
-  "ego": { "x": 0, "y": 0, "walking": false },
-  "activeVerb": null,
-  "hover": { "objectId": null, "name": null },
-  "sentenceLine": "",
+  "roomResource": 0,
+  "roomWidth": 320,
+  "roomHeight": 200,
+  "ego": {
+    "id": -1,
+    "room": 0,
+    "pos": { "x": 0, "y": 0 },
+    "facing": 0,
+    "walking": false,
+    "costume": 0
+  },
+  "hover": {
+    "objectId": 0,
+    "objectName": null,
+    "verbId": 0,
+    "mouse": { "x": 0, "y": 0 }
+  },
+  "sentence": {
+    "verb": 0,
+    "preposition": 0,
+    "objectA": 0,
+    "objectB": 0,
+    "active": false
+  },
+  "roomObjects": [],
   "inventory": [],
-  "dialogChoices": [],
-  "objects": []
+  "verbs": []
 }
     </script>
 
     <script type="module" src="/shared/bridge.js"></script>
     <script type="module" src="/shared/overlay.js"></script>
     <script type="module" src="/shared/state-panel.js"></script>
+    <!--
+      Mock telemetry. Self-gated on ?mock=1 — loads cheaply on every
+      visit, activates only when the query param is present. Useful
+      for end-to-end testing the harness without the scummvm-agent
+      fork. When active, the real runtime loader below still runs
+      but its onerror handler is harmless (the mock hides the
+      "runtime not built" banner).
+    -->
+    <script type="module" src="/shared/mock.js"></script>
 
     <!--
       The fork's emscripten bundle is expected at
       /public/scummvm/scummvm.js. It should call
       window.__scummPublish(snapshot) from the C++/JS bridge.
       We load it last so bridge.js has already installed
-      window.__scummPublish.
+      window.__scummPublish. In ?mock=1 mode this load will 404 and
+      the mock will have already hidden the missing-runtime banner.
     -->
     <script>
       (function loadScummvmRuntime() {
+        const isMock = new URLSearchParams(window.location.search).get("mock") === "1";
+        if (isMock) return; // mock provides its own fake runtime
         const s = document.createElement("script");
         s.src = "/public/scummvm/scummvm.js";
         s.async = true;

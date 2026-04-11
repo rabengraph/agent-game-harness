@@ -2,19 +2,22 @@
 
 ## Two-repo model
 
-### Repo 1 — `scummvm-agent`
+### Repo 1 — `scummvm` fork (`rabengraph/scummvm`)
 A fork of ScummVM. Owns:
 
 - SCUMM engine telemetry collection (`engines/scumm/agent_state.{h,cpp}`)
 - C++ to JavaScript bridge for the Emscripten target
   (`engines/scumm/agent_bridge_emscripten.cpp`)
-- Optional compile-time flag to enable the telemetry
+- `--enable-agent-telemetry` configure flag
 - Browser build configuration
+- The authoritative schema document at `engines/scumm/AGENT_HARNESS.md`
 
 It does **not** own the app shell, homepage, overlays, scripts, or
 deployment. Keep this repo narrow and mechanical.
 
-Suggested branch: `poc/agent-telemetry`.
+Working branch: **`claude/scummvm-agent-harness-DKVxd`**. The
+harness's `scripts/build-scummvm.sh` points at this by default via
+`SCUMMVM_AGENT_REMOTE` / `SCUMMVM_AGENT_BRANCH`.
 
 ### Repo 2 — `agent-game-harness` (this repo)
 Owns everything the agent sees and everything needed to run the site:
@@ -23,7 +26,9 @@ Owns everything the agent sees and everything needed to run the site:
 - `/game` route hosting the ScummVM wasm runtime
 - Optional `/status` debug route
 - Shared browser modules: `bridge.js`, `overlay.js`, `state-panel.js`,
-  `agent-brief.js`, `styles.css`
+  `agent-brief.js`, `mock.js`, `styles.css`
+- `mock.js` — fake telemetry gated on `/game?mock=1`, used to
+  validate the harness end-to-end without the fork build
 - Startup scripts: `bootstrap.sh`, `build-scummvm.sh`, `start-dev.sh`,
   `open-chrome.sh`
 - Vercel deployment config
@@ -66,25 +71,73 @@ Agent
 
 ### State schema (v1)
 
-```json
+The canonical definition lives in the fork's
+`engines/scumm/AGENT_HARNESS.md` §4. The harness expects this shape:
+
+```jsonc
 {
-  "frame": 0,
-  "room": 0,
-  "sceneName": null,
-  "ego": { "x": 0, "y": 0, "walking": false },
-  "activeVerb": null,
-  "hover": { "objectId": null, "name": null },
-  "sentenceLine": "",
-  "inventory": [],
-  "dialogChoices": [],
-  "objects": [
+  "schema": 1,                 // bump on breaking changes
+  "seq": 1234,                 // monotonic counter across snapshots + events
+  "t": 71234567,               // engine millis
+
+  "gameId": 12,                // Scumm::GameID enum
+  "gameVersion": 5,            // detection version
+  "gameName": "monkey",        // detection id
+
+  "room": 10,
+  "roomResource": 10,
+  "roomWidth": 320,            // virtual-screen coords
+  "roomHeight": 200,
+
+  "ego": {
+    "id": 1,
+    "room": 10,
+    "pos": { "x": 160, "y": 120 },
+    "facing": 270,
+    "walking": false,
+    "costume": 93
+  },
+
+  "hover": {
+    "objectId": 42,            // 0 if nothing under the cursor
+    "objectName": "door",
+    "verbId": 3,
+    "mouse": { "x": 160, "y": 120 }
+  },
+
+  "sentence": {
+    "verb": 3,
+    "preposition": 2,
+    "objectA": 42,
+    "objectB": 0,
+    "active": true
+  },
+
+  "roomObjects": [
     {
-      "id": 0,
-      "name": "",
-      "x": 0, "y": 0, "w": 0, "h": 0,
-      "visible": true,
-      "clickable": true,
-      "state": 0
+      "id": 42, "name": "door",
+      "box": { "x": 120, "y": 80, "w": 40, "h": 80 },
+      "state": 0, "owner": 0,
+      "inInventory": false,
+      "untouchable": false
+    }
+  ],
+
+  "inventory": [
+    {
+      "id": 7, "name": "rubber chicken with a pulley in the middle",
+      "box": { "x": 0, "y": 0, "w": 0, "h": 0 },
+      "state": 0, "owner": 1,
+      "inInventory": true,
+      "untouchable": false
+    }
+  ],
+
+  "verbs": [
+    {
+      "slot": 1, "id": 100, "name": "Open",
+      "box": { "x": 0, "y": 144, "w": 40, "h": 8 },
+      "visible": true
     }
   ]
 }
@@ -92,22 +145,63 @@ Agent
 
 Field rules:
 
-- `objects` is only the current room's relevant objects.
-- `visible` and `clickable` are distinct.
-- Object names are exported when available.
-- Bounding boxes are included only when reliable.
-- `sentenceLine` reflects the built action (e.g. "Open door").
-- `dialogChoices` reflects *current* interaction choices, not every
-  possible script state.
+- `roomObjects` contains only objects owned by the current room
+  (`OF_OWNER_ROOM`). Picked-up items move to `inventory`.
+- `inventory` is filtered to items owned by ego (`VAR_EGO`).
+- `verbs` lists occupied verb slots only (slot 0 is a sentinel).
+  `name` may be empty until the `rtVerb` resource loads; fall back
+  to the numeric `id`.
+- **Coordinates are virtual-screen pixels** (`roomWidth × roomHeight`),
+  not canvas pixels. The overlay scales them to the canvas client
+  box.
+- Object `box` is best-effort. Good enough for a rough overlay, not
+  reliable for pixel-perfect hit testing.
+- `walking` is true when any `MF_*` movement flag (except `MF_FROZEN`)
+  is set on the ego actor.
+- `hover.objectId == 0` means the mouse is not over any object. Same
+  for `hover.verbId`.
+- The snapshot may grow new top-level keys without bumping `schema`;
+  the harness tolerates unknown keys. Field removals or renames will
+  bump `schema`, at which point `bridge.js` logs a loud warning.
+
+### Event schema (v1)
+
+Events are small diffs emitted on meaningful state changes, **in
+addition to** full snapshots. Envelope:
+
+```jsonc
+{
+  "kind": 1,                   // see table below
+  "seq": 1234,                 // shares the counter with snapshots
+  "t": 71234567,
+  "payload": { /* kind-specific */ }
+}
+```
+
+| `kind` | Name               | Payload |
+|:---:|---------------------|---|
+| 1 | `roomChanged`       | `{ "from": 9, "to": 10, "resource": 10 }` |
+| 2 | `hoverChanged`      | `{ "objectId": 42, "objectName": "door", "verbId": 3 }` |
+| 3 | `inventoryChanged`  | `{ "count": 5 }` |
+| 4 | `sentenceChanged`   | `{ "verb": 3, "objectA": 42, "objectB": 0, "active": true }` |
+| 5 | `egoMoved`          | `{ "room": 10, "x": 160, "y": 120, "walking": false }` |
+| 6 | `objectStateChanged`| *(reserved)* |
+| 7 | `gameReset`         | *(reserved)* |
+
+Kinds 6 and 7 are defined but not currently emitted. `egoMoved` is
+only emitted on room change or walk-stop — per-pixel motion is
+carried by the rate-capped snapshot stream.
 
 ### Cadence
 
 Hybrid model:
 
-- **Snapshots** — compact, on meaningful change or capped at 5–10 Hz.
-- **Events** — small immediate messages for: room change, active verb
-  change, hover change, inventory change, dialogue change, sentence
-  line change.
+- **Snapshots** — rate-limited to ≥100 ms between emissions (~10 Hz).
+  Driven by the SCUMM main loop in the fork (`scummLoop()` tail).
+- **Events** — emitted immediately when a diff is detected, bounded
+  only by the engine's frame rate.
+- Snapshots and events share a single `seq` counter so the harness
+  can order them reliably.
 
 ## Hosting model
 

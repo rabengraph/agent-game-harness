@@ -12,11 +12,20 @@
 // The scummvm-agent fork publishes state by calling
 // window.__scummPublish(snapshotObject). It should also call
 // window.__scummEmit(eventObject) for immediate event messages
-// (room change, verb change, etc.).
+// (room/hover/sentence/inventory/ego-moved, see fork's AGENT_HARNESS.md).
 //
-// Keep this file small — all schema knowledge lives in the fork.
+// Keep this file small — all schema knowledge lives in the fork. The
+// harness tolerates unknown top-level keys so additive changes to the
+// snapshot don't require bridge changes. A schema version bump (any
+// field removed or renamed) logs a loud warning once so the operator
+// knows the harness may be rendering stale assumptions.
 
 const HISTORY_CAP = 64;
+
+// Bump this when the consumers (overlay/panel/runbook) are updated for
+// a new snapshot schema. Must match the fork's Agent::kSchemaVersion.
+const SUPPORTED_SCHEMA = 1;
+let schemaWarned = false;
 
 const state = {
   latest: null,
@@ -56,6 +65,17 @@ function persistForStatus() {
 
 function publish(snapshot) {
   if (!snapshot || typeof snapshot !== "object") return;
+
+  if (typeof snapshot.schema === "number" && snapshot.schema > SUPPORTED_SCHEMA && !schemaWarned) {
+    schemaWarned = true;
+    console.warn(
+      "[SCUMM_BRIDGE] snapshot schema " +
+        snapshot.schema +
+        " is newer than harness-supported schema " +
+        SUPPORTED_SCHEMA +
+        ". Rendering may be stale; update the harness."
+    );
+  }
 
   const normalized = {
     receivedAt: nowIso(),

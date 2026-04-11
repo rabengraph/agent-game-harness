@@ -4,48 +4,70 @@
 // visually confirm that the symbolic state matches the rendered scene.
 // If overlay and scene disagree, trust the scene — the overlay is a
 // debug aid, not ground truth.
+//
+// Coordinates in the snapshot are virtual-screen pixels
+// (snapshot.roomWidth × snapshot.roomHeight, the engine's internal
+// coord space), not canvas pixels. We scale them to the canvas's
+// client box so the overlay aligns regardless of CSS sizing.
+//
+// Per the fork's AGENT_HARNESS.md §4: `box` is "not guaranteed to be
+// tight or visually perfect". Good enough to spot gross telemetry
+// mistakes; not a pixel-perfect hit-test.
 
 const stage = document.getElementById("scumm-stage");
 const overlay = document.getElementById("scumm-overlay");
 const canvas = document.getElementById("scumm-canvas");
 
+// Default virtual size for classic SCUMM (v5/v6). If the snapshot
+// carries an explicit roomWidth/roomHeight we use that instead.
+const DEFAULT_VIRTUAL_W = 320;
+const DEFAULT_VIRTUAL_H = 200;
+
 if (stage && overlay && canvas) {
   function render(snapshot) {
-    if (!snapshot || !Array.isArray(snapshot.objects)) {
+    if (!snapshot) {
       overlay.innerHTML = "";
       return;
     }
 
+    const roomObjects = Array.isArray(snapshot.roomObjects)
+      ? snapshot.roomObjects
+      : [];
+
     const cw = canvas.clientWidth || canvas.width;
     const ch = canvas.clientHeight || canvas.height;
-    const rw = canvas.width || cw;
-    const rh = canvas.height || ch;
+    const rw = snapshot.roomWidth || DEFAULT_VIRTUAL_W;
+    const rh = snapshot.roomHeight || DEFAULT_VIRTUAL_H;
     const sx = cw / rw;
     const sy = ch / rh;
 
     const parts = [];
-    for (const obj of snapshot.objects) {
-      if (!obj || obj.visible === false) continue;
-      const x = Math.round((obj.x ?? 0) * sx);
-      const y = Math.round((obj.y ?? 0) * sy);
-      const w = Math.round((obj.w ?? 0) * sx);
-      const h = Math.round((obj.h ?? 0) * sy);
+    for (const obj of roomObjects) {
+      if (!obj || !obj.box) continue;
+      const box = obj.box;
+      // Skip zero-sized boxes (e.g. objects without a rect).
+      if (!box.w || !box.h) continue;
+      const x = Math.round((box.x ?? 0) * sx);
+      const y = Math.round((box.y ?? 0) * sy);
+      const w = Math.round((box.w ?? 0) * sx);
+      const h = Math.round((box.h ?? 0) * sy);
       const name = obj.name || `#${obj.id ?? "?"}`;
-      const clickable = obj.clickable !== false;
+      const clickable = !obj.untouchable;
       parts.push(
         `<div class="overlay-box ${clickable ? "overlay-box--click" : ""}"` +
           ` style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"` +
           ` data-object-id="${obj.id ?? ""}"` +
+          ` data-object-name="${escapeAttr(name)}"` +
           ` title="${escapeAttr(name)}">` +
           `<span class="overlay-label">${escapeHtml(name)}</span>` +
           `</div>`
       );
     }
 
-    if (snapshot.hover && snapshot.hover.name) {
+    if (snapshot.hover && snapshot.hover.objectName) {
       parts.push(
         `<div class="overlay-hover">hover: ${escapeHtml(
-          snapshot.hover.name
+          snapshot.hover.objectName
         )}</div>`
       );
     }

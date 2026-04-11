@@ -80,6 +80,17 @@
       </section>
 
       <section class="brief__section">
+        <h2>Dev aid: mock mode</h2>
+        <p>
+          <a href="/game?mock=1"><code>/game?mock=1</code></a> runs
+          fake telemetry that matches the real v1 schema. Useful if the
+          ScummVM runtime hasn't been built yet. Mock snapshots carry
+          <code>"mock": true</code>. See
+          <code>claude/runbook.md</code> for the full schema.
+        </p>
+      </section>
+
+      <section class="brief__section">
         <h2>Machine-readable brief</h2>
         <p>
           The same briefing is available as JSON in
@@ -95,14 +106,51 @@
     -->
     <script id="agent-brief" type="application/json">
 {
-  "version": 1,
+  "version": 2,
   "mission": "Navigate to /game and make progress in the adventure game.",
   "gameRoute": "/game",
   "statusRoute": "/status",
+  "mockRoute": "/game?mock=1",
+  "runbook": "/claude/runbook.md",
   "stateSources": {
     "window": "__scummState",
     "domNodeId": "scumm-state",
+    "readHelper": "__scummRead",
+    "historyHelper": "__scummHistory",
+    "eventsHelper": "__scummEvents",
+    "customEvents": ["scumm:state", "scumm:event"],
     "consoleTags": ["SCUMM_STATE", "SCUMM_EVENT"]
+  },
+  "schema": {
+    "snapshotVersion": 1,
+    "coordSpace": "virtual-screen (roomWidth x roomHeight, not canvas pixels)",
+    "canonicalDoc": "scummvm-agent/engines/scumm/AGENT_HARNESS.md",
+    "keyFields": [
+      "room", "roomWidth", "roomHeight",
+      "ego.pos.{x,y}", "ego.walking",
+      "sentence.{verb,objectA,objectB,active}",
+      "hover.{objectId,objectName,verbId}",
+      "roomObjects[].{id,name,box,state,untouchable}",
+      "inventory[].{id,name}",
+      "verbs[].{slot,id,name,visible}"
+    ],
+    "notes": [
+      "roomObjects holds current-room objects only; picked-up items move to inventory.",
+      "untouchable == true means not clickable. Treat !untouchable as clickable.",
+      "There is no pre-formatted sentenceLine; synthesize it from sentence + verbs + object names.",
+      "hover.objectId == 0 means no hover target.",
+      "Schema is additive; the bridge warns loudly if snapshot.schema > 1."
+    ]
+  },
+  "events": {
+    "envelope": { "kind": "int", "seq": "int", "t": "int", "payload": "object" },
+    "kinds": {
+      "1": "roomChanged",
+      "2": "hoverChanged",
+      "3": "inventoryChanged",
+      "4": "sentenceChanged",
+      "5": "egoMoved"
+    }
   },
   "policies": [
     "Prefer symbolic state first.",
@@ -113,7 +161,8 @@
   ],
   "debug": {
     "overlay": "#scumm-overlay",
-    "panel": "#scumm-panel"
+    "panel": "#scumm-panel",
+    "mockApi": "window.__scummMock  (only on /game?mock=1)"
   }
 }
     </script>

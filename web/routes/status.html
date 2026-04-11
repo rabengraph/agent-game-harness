@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Agent Game Harness — /status</title>
+    <link rel="stylesheet" href="/shared/styles.css" />
+  </head>
+  <body class="page page-status">
+    <header class="game__header">
+      <a class="game__back" href="/">← brief</a>
+      <h1 class="game__title">/status</h1>
+      <a class="game__status" href="/game">game →</a>
+    </header>
+
+    <main class="status__main">
+      <section class="status__block">
+        <h2>Build</h2>
+        <pre id="status-build">loading…</pre>
+      </section>
+
+      <section class="status__block">
+        <h2>Latest snapshot</h2>
+        <p>
+          This mirrors <code>window.__scummState</code> / <code>#scumm-state</code>
+          from the most recently loaded <code>/game</code> session in
+          this tab. If you haven't opened <code>/game</code> yet this
+          will be empty.
+        </p>
+        <pre id="status-snapshot">(no snapshot yet)</pre>
+      </section>
+
+      <section class="status__block">
+        <h2>Recent events</h2>
+        <pre id="status-events">(no events yet)</pre>
+      </section>
+    </main>
+
+    <script type="module">
+      // Read the in-memory history written by bridge.js into
+      // sessionStorage on /game. Keeps /status purely static.
+      const buildEl = document.getElementById("status-build");
+      const snapEl = document.getElementById("status-snapshot");
+      const evEl = document.getElementById("status-events");
+
+      buildEl.textContent = JSON.stringify(
+        {
+          harness: "agent-game-harness",
+          version: "0.1.0",
+          time: new Date().toISOString(),
+        },
+        null,
+        2
+      );
+
+      try {
+        const snap = sessionStorage.getItem("scummLatestSnapshot");
+        if (snap) snapEl.textContent = JSON.stringify(JSON.parse(snap), null, 2);
+      } catch (_e) {}
+
+      try {
+        const ev = sessionStorage.getItem("scummRecentEvents");
+        if (ev) evEl.textContent = JSON.stringify(JSON.parse(ev), null, 2);
+      } catch (_e) {}
+    </script>
+  </body>
+</html>

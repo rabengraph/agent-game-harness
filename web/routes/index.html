@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Agent Game Harness — Briefing</title>
+    <link rel="stylesheet" href="/shared/styles.css" />
+    <script defer src="/shared/agent-brief.js"></script>
+  </head>
+  <body class="page page-home">
+    <main class="brief">
+      <header class="brief__header">
+        <p class="brief__eyebrow">AGENT BRIEFING</p>
+        <h1 class="brief__title">agent-game-harness</h1>
+        <p class="brief__subtitle">
+          This site is designed primarily for AI agents. Read the mission,
+          then open <a href="/game"><code>/game</code></a>.
+        </p>
+      </header>
+
+      <section class="brief__section">
+        <h2>Mission</h2>
+        <p>
+          Navigate to <a href="/game"><code>/game</code></a> and make progress
+          in the adventure game running there. Use the symbolic state
+          exposed by the runtime to decide what to do. Prefer acting on
+          structured data over inferring from pixels.
+        </p>
+      </section>
+
+      <section class="brief__section">
+        <h2>Where the game lives</h2>
+        <ul>
+          <li><code>/</code> — this briefing page.</li>
+          <li><code>/game</code> — the playable game surface.</li>
+          <li>
+            <code>/status</code> — optional debug view with the latest
+            snapshot and recent events.
+          </li>
+        </ul>
+      </section>
+
+      <section class="brief__section">
+        <h2>State inspection</h2>
+        <p>On <code>/game</code>, symbolic state is exposed via:</p>
+        <ul>
+          <li>
+            <code>window.__scummState</code> — the latest authoritative
+            snapshot as a plain JavaScript object.
+          </li>
+          <li>
+            <code>document.getElementById("scumm-state")</code> — the
+            same snapshot as JSON inside a
+            <code>&lt;script type="application/json"&gt;</code> node.
+          </li>
+          <li>
+            Console events tagged <code>[SCUMM_STATE]</code> and
+            <code>[SCUMM_EVENT]</code>.
+          </li>
+          <li>
+            A visual object overlay and a debug state panel for human
+            inspection.
+          </li>
+        </ul>
+      </section>
+
+      <section class="brief__section">
+        <h2>Operating rules</h2>
+        <ol>
+          <li>Prefer symbolic state first.</li>
+          <li>Use visual confirmation second.</li>
+          <li>
+            If telemetry and visuals disagree, trust the rendered game
+            and report the discrepancy.
+          </li>
+          <li>Save frequently.</li>
+          <li>Avoid repeating failed action loops.</li>
+        </ol>
+      </section>
+
+      <section class="brief__section">
+        <h2>Machine-readable brief</h2>
+        <p>
+          The same briefing is available as JSON in
+          <code>#agent-brief</code> below. Agents should parse it first.
+        </p>
+        <pre id="agent-brief-preview" class="brief__preview">loading…</pre>
+      </section>
+    </main>
+
+    <!--
+      Machine-readable brief. Agents: read this first.
+      Keep structure stable; bump "version" when schema changes.
+    -->
+    <script id="agent-brief" type="application/json">
+{
+  "version": 1,
+  "mission": "Navigate to /game and make progress in the adventure game.",
+  "gameRoute": "/game",
+  "statusRoute": "/status",
+  "stateSources": {
+    "window": "__scummState",
+    "domNodeId": "scumm-state",
+    "consoleTags": ["SCUMM_STATE", "SCUMM_EVENT"]
+  },
+  "policies": [
+    "Prefer symbolic state first.",
+    "Use visual confirmation second.",
+    "If telemetry and visuals disagree, trust the rendered game.",
+    "Save frequently.",
+    "Avoid repeating failed action loops."
+  ],
+  "debug": {
+    "overlay": "#scumm-overlay",
+    "panel": "#scumm-panel"
+  }
+}
+    </script>
+  </body>
+</html>

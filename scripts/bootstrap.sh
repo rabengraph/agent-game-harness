@@ -31,18 +31,28 @@ soft_require() {
   log "found $name: $(command -v "$name")"
 }
 
+# Load nvm if available and .nvmrc exists
+if [ -f "$ROOT/.nvmrc" ]; then
+  if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "loading nvm…"
+    source "$HOME/.nvm/nvm.sh"
+    log "installing node from .nvmrc…"
+    nvm install
+    nvm use
+  else
+    warn ".nvmrc found but nvm not installed; install nvm or Node.js manually"
+  fi
+fi
+
 log "checking prerequisites…"
 missing=0
 require git || missing=$((missing + 1))
 require node || missing=$((missing + 1))
-if command -v pnpm >/dev/null 2>&1; then
-  log "using pnpm"
-  PKG="pnpm"
-elif command -v npm >/dev/null 2>&1; then
-  log "using npm"
-  PKG="npm"
-else
-  err "missing both pnpm and npm"
+
+# Enable corepack to use pnpm from packageManager field in package.json
+log "enabling corepack for pnpm…"
+if ! corepack enable pnpm 2>/dev/null; then
+  err "failed to enable corepack; ensure Node.js >= 16.10 is installed"
   missing=$((missing + 1))
 fi
 
@@ -65,10 +75,7 @@ mkdir -p \
   "$ROOT/web/public/scummvm"
 
 log "installing node deps…"
-case "$PKG" in
-  pnpm) pnpm install ;;
-  npm)  npm install ;;
-esac
+pnpm install
 
 log "done."
 log "next: ./scripts/build-scummvm.sh (once emsdk is set up)"

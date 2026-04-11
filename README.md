@@ -26,7 +26,7 @@ The central question this POC tries to answer:
 ## Quick start
 
 ```bash
-./scripts/bootstrap.sh        # install deps and verify prerequisites
+./scripts/bootstrap.sh        # install Node (via nvm), pnpm, and deps
 ./scripts/build-scummvm.sh    # clone + build the fork, copy artifacts into web/public/scummvm
 ./scripts/start-dev.sh        # start a static dev server and print routes
 ./scripts/open-chrome.sh      # open the homepage in a fresh Chrome profile
@@ -35,8 +35,11 @@ The central question this POC tries to answer:
 Or:
 
 ```bash
-npm start
+pnpm start
 ```
+
+> **Note:** If you use [nvm](https://github.com/nvm-sh/nvm), bootstrap will
+> automatically install and use the Node version from `.nvmrc`.
 
 ### Without the fork build
 

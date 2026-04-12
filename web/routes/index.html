@@ -14,431 +14,176 @@
         <p class="brief__eyebrow">AGENT BRIEFING</p>
         <h1 class="brief__title">agent-game-harness</h1>
         <p class="brief__subtitle">
-          This site is designed primarily for AI agents. Read the mission,
-          then open <a href="/game"><code>/game</code></a>.
+          Play <a href="/routes/game.html?game=monkey1"><code>/routes/game.html?game=monkey1</code></a>
+          using the <code>window.__scumm*</code> API.
         </p>
       </header>
 
       <section class="brief__section">
-        <h2>Mission</h2>
-        <p>
-          Navigate to <a href="/game"><code>/game</code></a> and make progress
-          in the adventure game running there. Use the symbolic state
-          exposed by the runtime to decide what to do. Prefer acting on
-          structured data over inferring from pixels.
-        </p>
-      </section>
-
-      <section class="brief__section">
-        <h2>Where the game lives</h2>
-        <ul>
-          <li><code>/</code> — this briefing page.</li>
-          <li><code>/game</code> — the playable game surface.</li>
-          <li>
-            <code>/status</code> — optional debug view with the latest
-            snapshot and recent events.
-          </li>
-        </ul>
-      </section>
-
-      <section class="brief__section">
-        <h2>State inspection (read)</h2>
-        <p>On <code>/game</code>, symbolic state is exposed via:</p>
-        <ul>
-          <li>
-            <code>window.__scummState</code> — the latest authoritative
-            snapshot as a plain JavaScript object.
-          </li>
-          <li>
-            <code>document.getElementById("scumm-state")</code> — the
-            same snapshot as JSON inside a
-            <code>&lt;script type="application/json"&gt;</code> node.
-          </li>
-          <li>
-            Console events tagged <code>[SCUMM_STATE]</code> and
-            <code>[SCUMM_EVENT]</code>.
-          </li>
-          <li>
-            A visual object overlay and a debug state panel for human
-            inspection.
-          </li>
-        </ul>
-        <p>Key snapshot fields:</p>
-        <ul>
-          <li><code>camera.x</code> — scroll offset for room-to-screen coordinate conversion.</li>
-          <li><code>haveMsg</code> — text display state (0=none, 255=active, 1=ending).</li>
-          <li><code>verbs[]</code> — includes dialog choices when a conversation is active.</li>
-        </ul>
-      </section>
-
-      <section class="brief__section">
-        <h2>Action API (write)</h2>
-        <p>Agents can control the game via these functions on <code>/game</code>:</p>
-        <ul>
-          <li>
-            <code>__scummDoSentence({verb, objectA, objectB})</code> — execute verb + objects (preferred).
-          </li>
-          <li>
-            <code>__scummSelectDialog(index)</code> — pick a dialog choice by 0-based index.
-          </li>
-          <li>
-            <code>__scummClickObject(objectId)</code> — click an object by ID.
-          </li>
-          <li>
-            <code>__scummClickAt(x, y)</code> — click at room coordinates.
-          </li>
-          <li>
-            <code>__scummWalkTo(x, y)</code> — walk ego to room coordinates.
-          </li>
-          <li>
-            <code>__scummSkipMessage()</code> — dismiss current dialog text.
-          </li>
-          <li>
-            <code>__scummActionsReady()</code> — check if action API is available.
-          </li>
-        </ul>
-        <p>
-          Use <code>doSentence</code> for object interactions (atomic, auto-walks).
-          Use <code>selectDialog</code> for dialog choices (reads <code>dialogChoices[]</code>).
-          Do NOT use <code>clickVerb</code> — it is deprecated and can corrupt the game UI.
-          Check <code>inputLocked</code> and <code>inCutscene</code> before sending commands.
-        </p>
-      </section>
-
-      <section class="brief__section">
-        <h2>Techniques</h2>
-        <p>Common patterns for combining the APIs effectively.</p>
-
-        <h3>Event log workflow</h3>
-        <p>
-          Use cursor-based polling to react to game changes. Initialize a
-          cursor at 0, perform an action, then poll for new events:
-        </p>
-        <pre><code>let cursor = 0;
-// After any action, get new events:
-const { events, cursor: next } = __scummEventsSince(cursor);
-cursor = next;
-// Filter for the event you care about:
-const arrived = events.find(e => e.kind === "egoArrived");
-const roomChange = events.find(e => e.kind === "roomEntered");</code></pre>
-        <p>
-          Poll in a loop with a short delay (~300ms) until the expected
-          event appears. Always update your cursor even if you don't find
-          the event yet — this avoids re-processing old events.
-        </p>
-
-        <h3>Building a doSentence call</h3>
-        <p>
-          Read the state once, find the verb by name, find the object by
-          name, then combine:
-        </p>
-        <pre><code>const s = __scummRead();
-const verb = s.verbs.find(v => v.name.toLowerCase().includes("look"));
-const obj = s.roomObjects.find(o => o.name === "poster");
-__scummDoSentence({ verb: verb.id, objectA: obj.id });</code></pre>
-        <p>
-          <code>doSentence</code> auto-walks ego to the target — no
-          need to <code>walkTo</code> first. It returns <code>true</code>
-          if queued. For two-object verbs (e.g. "Use X with Y"), pass
-          <code>objectB</code> as well.
-        </p>
-
-        <h3>Conversation loop</h3>
-        <p>
-          Conversations follow a repeating cycle: NPC speaks → dialog
-          choices appear → you pick one → more dialog lines → repeat.
-        </p>
-        <pre><code>// 1. Start conversation:
-__scummDoSentence({ verb: talkVerbId, objectA: npcObjectId });
-
-// 2. Wait for dialogChoices to appear:
-//    Poll __scummRead() until s.dialogChoices.length > 0
-//    or watch for a "dialogChoicesChanged" event.
-
-// 3. Read and select a choice:
-const s = __scummRead();
-// s.dialogChoices = [{ id, name, slot, box, kind:2 }, ...]
-__scummSelectDialog(0);  // pick first choice (0-indexed)
-
-// 4. Collect the dialog lines that follow:
-//    Poll __scummEventsSince(cursor) and look for
-//    "messageStateChanged" events with label "ending".
-//    Each has: { text, talkingActor }
-//    Actor 1 = Guybrush, higher numbers = NPCs, 255 = narrator.
-
-// 5. Advance past each line:
-__scummSkipMessage();
-
-// 6. Repeat from step 2 until dialogChoices is empty
-//    and haveMsg returns to 0.</code></pre>
-        <p>
-          During cutscenes (<code>inputLocked: true</code>), don't send
-          commands — just collect dialog lines and wait for
-          <code>inputLockChanged: { locked: false }</code>.
-        </p>
-
-        <h3>Room navigation</h3>
-        <p>
-          To move between rooms, find exit objects (doors, archways,
-          paths) in <code>roomObjects</code> and walk through them:
-        </p>
-        <pre><code>const s = __scummRead();
-const door = s.roomObjects.find(o => o.name === "door");
-const walk = s.verbs.find(v => v.name.toLowerCase().includes("walk"));
-
-// doSentence auto-walks ego to the door and usually triggers the transition:
-__scummDoSentence({ verb: walk.id, objectA: door.id });
-// Wait for "roomEntered" event to confirm you changed rooms.
-
-// Fallback — if doSentence doesn't trigger the transition, walk into
-// the door's bounding box directly:
-// __scummWalkTo(
-//   door.box.x + Math.floor(door.box.w / 2),
-//   door.box.y + Math.floor(door.box.h / 2)
-// );</code></pre>
-        <p>
-          After entering a new room, re-read the state — <code>roomObjects</code>,
-          <code>actors</code>, and <code>verbs</code> will all be different.
-        </p>
-
-        <h3>Waiting and timing</h3>
-        <p>
-          The engine runs at ~10 Hz. After issuing an action, poll with
-          ~300ms delays. Key events to watch for:
-        </p>
-        <ul>
-          <li><code>egoArrived</code> — ego finished walking.</li>
-          <li><code>roomEntered</code> — room transition completed.</li>
-          <li><code>messageStateChanged</code> — dialog text appeared or cleared.</li>
-          <li><code>dialogChoicesChanged</code> — dialog options appeared.</li>
-          <li><code>inputLockChanged</code> — cutscene started/ended.</li>
-        </ul>
-        <p>
-          Check <code>__scummActionsReady()</code> before your first
-          command. Check <code>inputLocked</code> before each subsequent
-          command — the engine ignores input during cutscenes.
-        </p>
-      </section>
-
-      <section class="brief__section">
-        <h2>Operating rules</h2>
+        <h2>Quick start</h2>
         <ol>
-          <li>Prefer symbolic state first.</li>
-          <li>Use visual confirmation second.</li>
-          <li>
-            If telemetry and visuals disagree, trust the rendered game
-            and report the discrepancy.
-          </li>
-          <li>Save frequently.</li>
-          <li>Avoid repeating failed action loops.</li>
+          <li>Navigate to <code>/routes/game.html?game=monkey1</code></li>
+          <li>Wait for <code>__scummActionsReady()</code> to return true</li>
+          <li>Read state: <code>__scummRead()</code></li>
+          <li>Act: <code>__scummDoSentence({verb, objectA})</code></li>
+          <li>Observe: <code>__scummEventsSince(cursor)</code></li>
+          <li>Repeat 3-5</li>
         </ol>
       </section>
 
       <section class="brief__section">
-        <h2>Dev aid: mock mode</h2>
-        <p>
-          <a href="/game?mock=1"><code>/game?mock=1</code></a> runs
-          fake telemetry that matches the real v1 schema. Useful if the
-          ScummVM runtime hasn't been built yet. Mock snapshots carry
-          <code>"mock": true</code>. See
-          <code>claude/runbook.md</code> for the full schema.
-        </p>
+        <h2>Read API</h2>
+        <table>
+          <tr><td><code>__scummRead()</code></td><td>Full state snapshot (room, ego, objects, verbs, inventory, actors, dialogChoices)</td></tr>
+          <tr><td><code>__scummEventsSince(cursor)</code></td><td>Returns <code>{events[], cursor}</code>. Pass cursor back next call for incremental reads.</td></tr>
+          <tr><td><code>__scummActionsReady()</code></td><td>True when WASM is loaded and actions work</td></tr>
+        </table>
+      </section>
+
+      <section class="brief__section">
+        <h2>Action API</h2>
+        <table>
+          <tr><td><code>__scummDoSentence({verb, objectA, objectB?})</code></td><td>Preferred. Atomic verb+object, auto-walks ego.</td></tr>
+          <tr><td><code>__scummSelectDialog(index)</code></td><td>Pick dialog choice (0-indexed into <code>dialogChoices[]</code>)</td></tr>
+          <tr><td><code>__scummSkipMessage()</code></td><td>Dismiss current dialog text</td></tr>
+          <tr><td><code>__scummWalkTo(x, y)</code></td><td>Walk ego to room coordinates</td></tr>
+          <tr><td><code>__scummClickAt(x, y)</code></td><td>Last resort. Click at room coordinates.</td></tr>
+        </table>
+      </section>
+
+      <section class="brief__section">
+        <h2>Key state fields</h2>
+        <ul>
+          <li><code>room</code>, <code>roomObjects[]</code> — current room ID and objects with <code>{id, name, box, state, untouchable}</code></li>
+          <li><code>ego.pos.{x,y}</code>, <code>ego.walking</code> — player position and movement</li>
+          <li><code>verbs[]</code> — available verbs with <code>{id, name, kind}</code> (kind: 0=action, 2=dialog)</li>
+          <li><code>dialogChoices[]</code> — active dialog options (subset of verbs with kind==2)</li>
+          <li><code>inventory[]</code> — items with <code>{id, name}</code></li>
+          <li><code>actors[]</code> — NPCs in room with <code>{id, name, pos}</code></li>
+          <li><code>haveMsg</code> — 0=no text, 255=text active, 1=ending. Read <code>msgText</code> for content.</li>
+          <li><code>inputLocked</code> — true during cutscenes, don't send actions</li>
+          <li><code>camera.x</code> — viewport scroll offset</li>
+        </ul>
+      </section>
+
+      <section class="brief__section">
+        <h2>Key events</h2>
+        <ul>
+          <li><code>egoArrived</code> — ego finished walking</li>
+          <li><code>roomEntered</code> — room transition completed</li>
+          <li><code>messageStateChanged</code> — dialog text appeared/cleared (has <code>text</code>, <code>talkingActor</code>)</li>
+          <li><code>dialogChoicesChanged</code> — dialog options updated</li>
+          <li><code>inputLockChanged</code> — cutscene started/ended</li>
+        </ul>
+      </section>
+
+      <section class="brief__section">
+        <h2>Patterns</h2>
+        <h3>Look at / use an object</h3>
+        <pre><code>const s = __scummRead();
+const verb = s.verbs.find(v => v.name.toLowerCase().includes("look"));
+const obj = s.roomObjects.find(o => o.name === "poster");
+__scummDoSentence({ verb: verb.id, objectA: obj.id });</code></pre>
+
+        <h3>Conversation</h3>
+        <pre><code>// 1. Talk to NPC: __scummDoSentence({ verb: talkId, objectA: npcId })
+// 2. Poll __scummRead() until dialogChoices.length > 0
+// 3. Pick: __scummSelectDialog(0)
+// 4. Advance text: __scummSkipMessage() when haveMsg > 0
+// 5. Repeat until dialogChoices empty and haveMsg === 0</code></pre>
+
+        <h3>Room navigation</h3>
+        <pre><code>const s = __scummRead();
+const door = s.roomObjects.find(o => o.name === "door");
+const walk = s.verbs.find(v => v.name.toLowerCase().includes("walk"));
+__scummDoSentence({ verb: walk.id, objectA: door.id });
+// Wait for roomEntered event, then re-read state.</code></pre>
+      </section>
+
+      <section class="brief__section">
+        <h2>Strategy</h2>
+        <ol>
+          <li>Use <code>__scummRead()</code> as your primary orientation tool — inspect room objects, actors, verbs, and inventory to understand where you are and what you can do. <strong>Do not</strong> take screenshots for routine orientation.</li>
+          <li>Use <code>__scummEventsSince(cursor)</code> to efficiently catch up on what happened after an action — dialog text, room changes, cutscene starts/ends. This is far cheaper than re-reading full state or taking screenshots.</li>
+          <li>Use screenshots only as a fallback when the API state is ambiguous (e.g. spatial layout unclear, need to visually identify something the state doesn't describe). Screenshots are expensive in tokens.</li>
+          <li>Plan before acting: read the full state, identify available objects and NPCs, form a goal, then execute. Don't wander blindly.</li>
+          <li>Collect everything you can. The majority of puzzle solutions involve using inventory items — on objects, on other items, or giving them to NPCs. <strong>Pick up anything not nailed down.</strong></li>
+          <li>Build a mental map of room connections as you explore. Track which exits lead where.</li>
+          <li>Talk to NPCs to gather information — adventure games progress through conversation and item use.</li>
+        </ol>
+      </section>
+
+      <section class="brief__section">
+        <h2>Rules</h2>
+        <ol>
+          <li>Check <code>__scummActionsReady()</code> before first action.</li>
+          <li>Check <code>inputLocked</code> before each action.</li>
+          <li>Prefer <code>doSentence</code> over clickAt.</li>
+          <li>Use events (not polling state) to detect action results.</li>
+          <li>Avoid repeating failed actions.</li>
+        </ol>
       </section>
 
       <section class="brief__section">
         <h2>Machine-readable brief</h2>
-        <p>
-          The same briefing is available as JSON in
-          <code>#agent-brief</code> below. Agents should parse it first.
-        </p>
-        <pre id="agent-brief-preview" class="brief__preview">loading…</pre>
+        <p>Same data as JSON in <code>#agent-brief</code> below.</p>
+        <pre id="agent-brief-preview" class="brief__preview">loading...</pre>
       </section>
     </main>
 
-    <!--
-      Machine-readable brief. Agents: read this first.
-      Keep structure stable; bump "version" when schema changes.
-    -->
     <script id="agent-brief" type="application/json">
 {
-  "version": 4,
-  "mission": "Navigate to /game and make progress in the adventure game.",
-  "gameRoute": "/game",
-  "statusRoute": "/status",
-  "mockRoute": "/game?mock=1",
-  "runbook": "/claude/runbook.md",
-  "stateSources": {
-    "window": "__scummState",
-    "domNodeId": "scumm-state",
-    "readHelper": "__scummRead()",
-    "historyHelper": "__scummHistory()",
-    "eventsHelper": "__scummEvents()",
-    "eventsSinceHelper": "__scummEventsSince(seq) → { events, cursor }",
-    "customEvents": ["scumm:state", "scumm:event"],
-    "consoleTags": ["SCUMM_STATE", "SCUMM_EVENT"],
-    "notes": [
-      "Use __scummEventsSince(cursor) for incremental event reads. Store the returned cursor and pass it on the next call to get only new events.",
-      "Event buffer holds 256 entries. Engine events have numeric kind (1-5). Bridge-derived events have string kind (messageStateChanged, dialogChoicesChanged, roomEntered, inputLockChanged, cutsceneChanged, egoArrived).",
-      "Object/verb names are auto-cleaned (no @ padding)."
-    ]
-  },
-  "actionApi": {
-    "doSentence": "__scummDoSentence({ verb, objectA, objectB })",
-    "selectDialog": "__scummSelectDialog(index)",
-    "skipMessage": "__scummSkipMessage()",
-    "walkTo": "__scummWalkTo(x, y)",
-    "clickObject": "__scummClickObject(objectId)",
-    "clickAt": "__scummClickAt(x, y)",
-    "ready": "__scummActionsReady()",
-    "deprecated": {
-      "clickVerb": "__scummClickVerb(verbId) — DEPRECATED, can corrupt verb UI. Use selectDialog or doSentence instead."
+  "version": 6,
+  "mission": "Play the adventure game at /routes/game.html?game=monkey1 using the window.__scumm* API.",
+  "gameRoute": "/routes/game.html?game=monkey1",
+  "api": {
+    "read": {
+      "__scummRead()": "Full state snapshot",
+      "__scummEventsSince(cursor)": "{ events[], cursor } — incremental event reads",
+      "__scummActionsReady()": "True when WASM loaded"
     },
-    "notes": [
-      "doSentence is the PREFERRED action method. It queues verb+object(s) atomically into the engine's sentence stack. No timing issues.",
-      "doSentence auto-walks ego to the target object — you don't need to walkTo first.",
-      "doSentence returns true if queued, false if engine not ready or sentence queue full.",
-      "selectDialog(index) picks a dialog choice by 0-based index into dialogChoices[]. Dispatches the verb script directly by ID (no coordinate conversion). Returns false if no dialog active or index out of range.",
-      "dialogChoices[] is populated by the bridge, which tracks baseline verbs at room entry and classifies new verbs as dialog choices. This is game-agnostic.",
-      "Do NOT use clickVerb directly — it calls runInputScript bypassing the input pipeline. selectDialog is the safe wrapper for dialog choices. For action verbs, use doSentence.",
-      "skipMessage dismisses the current message/dialog text. Use it to advance through conversations. clickAt does NOT dismiss messages.",
-      "clickAt is a last resort — prefer doSentence or clickObject.",
-      "Door/exit transitions: doSentence(Walk to, doorId) auto-walks ego and usually triggers the transition. If it doesn't, follow up with walkTo into the door's bounding box center.",
-      "Check __scummActionsReady() before calling any action function.",
-      "After issuing an action, use __scummEventsSince() to detect the result rather than polling __scummState."
-    ]
-  },
-  "schema": {
-    "snapshotVersion": 1,
-    "coordSpace": "virtual-screen (roomWidth x roomHeight, not canvas pixels)",
-    "canonicalDoc": "scummvm-agent/engines/scumm/AGENT_HARNESS.md",
-    "keyFields": [
-      "room", "roomWidth", "roomHeight",
-      "camera.x",
-      "haveMsg", "msgText", "talkingActor",
-      "inputLocked", "inCutscene",
-      "ego.pos.{x,y}", "ego.walking",
-      "sentence.{verb,objectA,objectB,active}",
-      "hover.{objectId,objectName,verbId}",
-      "roomObjects[].{id,name,box,state,untouchable}",
-      "inventory[].{id,name}",
-      "actors[].{id,name,room,pos,facing,walking,costume}",
-      "verbs[].{slot,id,name,visible,kind}",
-      "dialogChoices[].{slot,id,name,visible,kind}",
-      "walkBoxes[].{id,ul,ur,ll,lr,locked,invisible}"
-    ],
-    "notes": [
-      "roomObjects holds current-room objects only; picked-up items move to inventory.",
-      "untouchable == true means not clickable. Treat !untouchable as clickable.",
-      "There is no pre-formatted sentenceLine; synthesize it from sentence + verbs + object names.",
-      "hover.objectId == 0 means no hover target.",
-      "camera.x is the viewport center; to convert room->screen: screen_x = room_x - camera.x + 160.",
-      "haveMsg: 0=no text, 255=text active (waiting for click), 1=text ending. Use skipMessage() to advance.",
-      "msgText: the currently displayed message string (empty when haveMsg=0). Read this instead of taking screenshots.",
-      "talkingActor: actor ID currently speaking (-1 or 255 if nobody).",
-      "verbs[] includes dialog choices when haveMsg != 0.",
-      "verbs[].kind: 0=action, 1=inventory, 2=dialog, 3=hidden.",
-      "inputLocked: true when player input is disabled (_userPut == 0).",
-      "inCutscene: true when a cutscene is playing.",
-      "actors[]: NPCs in the current room (excluding ego). Filtered to active actors with costumes.",
-      "dialogChoices[]: convenience subset of verbs with kind==2 (visible dialog options). Use selectDialog(index) to pick one.",
-      "walkBoxes[]: quadrilateral walkable areas with ul/ur/ll/lr corners.",
-      "Schema is additive; the bridge warns loudly if snapshot.schema > 1."
-    ]
-  },
-  "events": {
-    "envelope": { "kind": "int|string", "seq": "int", "t": "int", "payload": "object" },
-    "allKinds": {
-      "roomChanged": "{ from, to, resource } — engine",
-      "hoverChanged": "{ objectId, objectName, verbId } — engine",
-      "inventoryChanged": "{ count } — engine",
-      "sentenceChanged": "{ verb, objectA, objectB, active } — engine",
-      "egoMoved": "{ room, x, y, walking } — engine, only on room change or walk-stop",
-      "messageStateChanged": "{ from, to, label, text?, talkingActor? } — bridge, label: started|ending|cleared",
-      "dialogChoicesChanged": "{ choices: [{verbId, name, slot, box}], count } — bridge",
-      "roomEntered": "{ from, to, objects: [{id, name}] } — bridge",
-      "inputLockChanged": "{ locked } — bridge",
-      "cutsceneChanged": "{ inCutscene } — bridge",
-      "egoArrived": "{ x, y, room } — bridge"
-    },
-    "notes": "All event kinds are strings. Bridge events have source:'bridge'. Use __scummEventsSince(cursor) for incremental reads."
-  },
-  "techniques": {
-    "eventLogWorkflow": {
-      "description": "Cursor-based polling loop for reacting to game changes.",
-      "pattern": [
-        "let cursor = 0;",
-        "// After any action:",
-        "const { events, cursor: next } = __scummEventsSince(cursor);",
-        "cursor = next;",
-        "const arrived = events.find(e => e.kind === 'egoArrived');",
-        "// Poll every ~300ms until the expected event appears.",
-        "// Always update cursor even if you don't find it yet."
-      ]
-    },
-    "buildDoSentence": {
-      "description": "Find verb and object by name, then combine into an atomic action.",
-      "pattern": [
-        "const s = __scummRead();",
-        "const verb = s.verbs.find(v => v.name.toLowerCase().includes('look'));",
-        "const obj = s.roomObjects.find(o => o.name === 'poster');",
-        "__scummDoSentence({ verb: verb.id, objectA: obj.id });",
-        "// doSentence auto-walks ego. Returns true if queued.",
-        "// For two-object verbs: pass objectB too."
-      ]
-    },
-    "conversationLoop": {
-      "description": "Full dialog cycle: start talk, pick choices, collect lines, advance.",
-      "pattern": [
-        "// 1. Start: __scummDoSentence({ verb: talkVerbId, objectA: npcObjectId })",
-        "// 2. Wait for dialogChoices to appear (poll __scummRead() or watch dialogChoicesChanged event)",
-        "// 3. Read choices: s.dialogChoices = [{ id, name, slot, box, kind:2 }, ...]",
-        "// 4. Pick one: __scummSelectDialog(0)  // 0-indexed",
-        "// 5. Collect lines: poll __scummEventsSince(cursor), look for messageStateChanged with label 'ending'",
-        "//    Each has: { text, talkingActor } — actor 1=Guybrush, higher=NPCs, 255=narrator",
-        "// 6. Advance: __scummSkipMessage() after each line",
-        "// 7. Repeat from step 2 until dialogChoices is empty and haveMsg === 0",
-        "// During cutscenes (inputLocked:true): just collect lines, don't send commands."
-      ]
-    },
-    "roomNavigation": {
-      "description": "Move between rooms via exit objects (doors, archways, paths).",
-      "pattern": [
-        "const s = __scummRead();",
-        "const door = s.roomObjects.find(o => o.name === 'door');",
-        "const walk = s.verbs.find(v => v.name.toLowerCase().includes('walk'));",
-        "// doSentence auto-walks ego and usually triggers the transition:",
-        "__scummDoSentence({ verb: walk.id, objectA: door.id });",
-        "// Wait for roomEntered event. Then re-read state — everything changes.",
-        "// Fallback if transition doesn't fire: __scummWalkTo(door.box.x + door.box.w/2, door.box.y + door.box.h/2);"
-      ]
-    },
-    "waitingAndTiming": {
-      "description": "Engine runs at ~10Hz. Poll every ~300ms after actions.",
-      "keyEvents": [
-        "egoArrived — ego finished walking",
-        "roomEntered — room transition completed",
-        "messageStateChanged — dialog text appeared or cleared",
-        "dialogChoicesChanged — dialog options appeared",
-        "inputLockChanged — cutscene started/ended"
-      ],
-      "notes": [
-        "Check __scummActionsReady() before your first command.",
-        "Check inputLocked before each command — engine ignores input during cutscenes."
-      ]
+    "act": {
+      "__scummDoSentence({verb, objectA, objectB?})": "Preferred. Atomic verb+object, auto-walks.",
+      "__scummSelectDialog(index)": "Pick dialog choice (0-indexed)",
+      "__scummSkipMessage()": "Dismiss current dialog text",
+      "__scummWalkTo(x, y)": "Walk ego to room coords",
+      "__scummClickAt(x, y)": "Last resort click"
     }
   },
-  "policies": [
-    "Prefer symbolic state first.",
-    "Use visual confirmation second.",
-    "If telemetry and visuals disagree, trust the rendered game.",
-    "Save frequently.",
-    "Avoid repeating failed action loops."
+  "stateFields": [
+    "room, roomObjects[].{id,name,box,state,untouchable}",
+    "ego.pos.{x,y}, ego.walking",
+    "verbs[].{id,name,kind} — kind: 0=action, 2=dialog",
+    "dialogChoices[] — visible dialog options",
+    "inventory[].{id,name}",
+    "actors[].{id,name,pos}",
+    "haveMsg (0=none,255=active,1=ending), msgText, talkingActor",
+    "inputLocked — true during cutscenes",
+    "camera.x — viewport scroll offset"
   ],
-  "debug": {
-    "overlay": "#scumm-overlay",
-    "panel": "#scumm-panel",
-    "mockApi": "window.__scummMock  (only on /game?mock=1)"
-  }
+  "events": [
+    "egoArrived — ego stopped walking",
+    "roomEntered — room changed",
+    "messageStateChanged — dialog text (has text, talkingActor)",
+    "dialogChoicesChanged — dialog options updated",
+    "inputLockChanged — cutscene start/end"
+  ],
+  "strategy": [
+    "Use __scummRead() as primary orientation — inspect room objects, actors, verbs, inventory. Do NOT screenshot for routine orientation.",
+    "Use __scummEventsSince(cursor) to catch up on what happened after actions — much cheaper than full state reads or screenshots.",
+    "Screenshots are a fallback only — use when API state is ambiguous (spatial layout, visual identification). They are expensive in tokens.",
+    "Plan before acting: read state, identify objects/NPCs, form a goal, then execute. Don't wander blindly.",
+    "Collect everything you can. The majority of puzzle solutions involve using inventory items — on objects, on other items, or giving them to NPCs. Pick up anything not nailed down.",
+    "Build a mental map of room connections as you explore. Track which exits lead where.",
+    "Talk to NPCs to gather information — adventure games progress through conversation and item use."
+  ],
+  "rules": [
+    "Check __scummActionsReady() before first action",
+    "Check inputLocked before each action",
+    "Prefer doSentence over clickAt",
+    "Use events to detect results, not state polling",
+    "Avoid repeating failed actions"
+  ]
 }
     </script>
   </body>

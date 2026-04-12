@@ -10,7 +10,15 @@
     "dev": "./scripts/start-dev.sh",
     "start": "./scripts/start-dev.sh",
     "open": "./scripts/open-chrome.sh",
-    "serve": "npx --yes http-server web -p 5173 -c-1 --cors"
+    "serve": "npx --yes http-server web -p 5173 -c-1 --cors",
+    "browser:open": "node tools/browser/browser.js open",
+    "browser:state": "node tools/browser/browser.js state",
+    "browser:events": "node tools/browser/browser.js events",
+    "browser:eval": "node tools/browser/browser.js eval",
+    "browser:screenshot": "node tools/browser/browser.js screenshot",
+    "browser:action": "node tools/browser/browser.js action",
+    "browser:loop": "node tools/browser/browser.js loop",
+    "browser:close": "node tools/browser/browser.js close"
   },
   "devDependencies": {
     "http-server": "^14.1.1"

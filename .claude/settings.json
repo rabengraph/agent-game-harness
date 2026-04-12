@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm browser:*)",
+      "Bash(sleep:*)",
+      "Bash(node -e:*)",
+      "Bash(for :*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Skill(update-config)",
+      "Bash(pnpm browser:open:*)",
+      "Bash(pnpm browser:eval:*)",
+      "Bash(node:*)"
+    ]
+  }
+}

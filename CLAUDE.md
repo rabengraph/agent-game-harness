@@ -43,14 +43,13 @@ pnpm dev                    # or ./scripts/start-dev.sh
 
 ## Key Routes
 
-- `/` — Agent briefing page with machine-readable `#agent-brief` JSON
-- `/game` — ScummVM wasm runtime with telemetry
-  - `?game=<id>` — launch specific game (e.g., `?game=monkey1`)
+- `/routes/` — Agent briefing page with `#agent-brief` JSON and API reference
+- `/routes/game.html?game=monkey1` — ScummVM wasm runtime with telemetry
   - `?mock=1` — use fake telemetry (no fork build needed)
   - `?overlay=1` — start with debug overlay visible
-- `/status` — Debug view of snapshot and event history
+- `/routes/status.html` — Debug view of snapshot and event history
 
-Press `O` on `/game` to toggle debug overlay.
+Press `O` on the game page to toggle debug overlay.
 
 ## Directory Structure
 
@@ -77,6 +76,63 @@ The fork emits v1 snapshots via `window.__scummPublish()` → `bridge.js` fans o
 Key state fields: `room`, `ego`, `hover`, `sentence`, `roomObjects[]`, `inventory[]`, `verbs[]`
 
 Coordinates are virtual-screen pixels (`roomWidth × roomHeight`), not canvas pixels.
+
+## Browser Harness
+
+Drive the game from the terminal. Three commands cover everything:
+
+```bash
+pnpm browser:open                              # launch Chromium (persists between calls)
+pnpm browser:eval -- "<js expression>"         # eval JS on window, get JSON back
+pnpm browser:screenshot                        # save PNG to state/
+pnpm browser:close                             # kill browser
+```
+
+Setup: `pnpm install && npx playwright install chromium` (one-time Chromium download)
+
+### How it works
+
+`browser:eval` runs any JS in the page and returns `{ ok, value }` as JSON. All game interaction is just calling `window.__scumm*` globals through eval:
+
+```bash
+# Read state
+pnpm browser:eval -- "__scummRead()"
+
+# Do an action
+pnpm browser:eval -- "__scummDoSentence({verb:8, objectA:429})"
+
+# Skip dialog text
+pnpm browser:eval -- "__scummSkipMessage()"
+
+# Select dialog choice
+pnpm browser:eval -- "__scummSelectDialog(0)"
+
+# Get events since cursor
+pnpm browser:eval -- "__scummEventsSince(0)"
+
+# Navigate
+pnpm browser:eval -- "location.href='/routes/game.html?game=monkey1'"
+```
+
+### Agent play loop
+
+1. `pnpm browser:open` — opens briefing page
+2. `pnpm browser:eval -- "location.href='/routes/game.html?game=monkey1'"` — navigate to game
+3. `pnpm browser:eval -- "__scummRead()"` — read state (room, objects, verbs, inventory, ego)
+4. Decide next action from state
+5. `pnpm browser:eval -- "__scummDoSentence({verb:V, objectA:A})"` — act
+6. `pnpm browser:eval -- "__scummEventsSince(cursor)"` — observe result
+7. Repeat from 3
+
+### Window API summary
+
+**Read:** `__scummRead()` returns full state, `__scummEventsSince(cursor)` returns `{events, cursor}`.
+
+**Act:** `__scummDoSentence({verb, objectA, objectB?})` (preferred — atomic, auto-walks), `__scummSelectDialog(index)`, `__scummSkipMessage()`, `__scummWalkTo(x,y)`, `__scummClickAt(x,y)` (last resort).
+
+**Check:** `__scummActionsReady()` — call before first action. Check `state.inputLocked` before each action.
+
+The briefing page at `/routes/` has the full API reference as JSON in `#agent-brief`.
 
 ## Important Notes
 

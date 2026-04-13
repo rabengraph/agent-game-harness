@@ -12,9 +12,31 @@
       <a class="game__back" href="/">← brief</a>
       <h1 class="game__title">/game</h1>
       <a class="game__status" href="/status">status →</a>
+      <button id="game-clear-btn" class="game__clear" hidden>clear game</button>
     </header>
 
     <main class="game__main">
+      <!--
+        Upload UI — shown when no ?game= param and no stored game.
+        upload.js toggles visibility between this and game__stage-wrap.
+      -->
+      <section id="game-upload" class="game__upload" hidden>
+        <div id="game-drop-zone" class="upload__drop">
+          <h2 class="upload__title">Upload Game Files</h2>
+          <p class="upload__text">
+            Select your ScummVM game folder to play in the browser.
+            Files stay in your browser's local storage &mdash; nothing
+            leaves your machine.
+          </p>
+          <label class="upload__btn">
+            Select folder
+            <input id="game-file-input" type="file" webkitdirectory hidden />
+          </label>
+          <p class="upload__or">or drag &amp; drop a game folder here</p>
+          <p id="upload-status" class="upload__status"></p>
+        </div>
+      </section>
+
       <!--
         The ScummVM wasm runtime mounts into #scumm-stage. The fork's
         Emscripten target is expected to render into the canvas and call
@@ -89,6 +111,10 @@
     <script type="module" src="/shared/bridge.js"></script>
     <script type="module" src="/shared/overlay.js"></script>
     <script type="module" src="/shared/state-panel.js"></script>
+    <script type="module">
+      import { init } from "/shared/upload.js";
+      init().catch((err) => console.error("[UPLOAD]", err));
+    </script>
     <!--
       Mock telemetry. Self-gated on ?mock=1 — loads cheaply on every
       visit, activates only when the query param is present. Useful
@@ -124,6 +150,8 @@
         if (isMock) return; // mock provides its own fake runtime
 
         const gameId = params.get("game");
+        if (!gameId) return; // upload.js handles the no-game-param case
+
         if (gameId) {
           // /data is the fork's hardcoded DATA_PATH (see config.mk).
           // --auto-detect scans the path and launches whatever game

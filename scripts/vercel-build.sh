@@ -13,9 +13,16 @@ log()  { printf "\033[1;36m[vercel-build]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[vercel-build]\033[0m %s\n" "$*" >&2; }
 
 # ── 1. Install Emscripten SDK ────────────────────────────────────────
+if [ -d "$EMSDK_DIR" ]; then
+  log "emsdk already present (build cache), updating…"
+  cd "$EMSDK_DIR"
+  git pull || warn "git pull failed, continuing with cached version"
+else
+  log "cloning emsdk…"
+  git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
+  cd "$EMSDK_DIR"
+fi
 log "installing emsdk ($EMSDK_VERSION)…"
-git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
-cd "$EMSDK_DIR"
 ./emsdk install "$EMSDK_VERSION"
 ./emsdk activate "$EMSDK_VERSION"
 source ./emsdk_env.sh

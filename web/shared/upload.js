@@ -66,6 +66,14 @@ function installInterceptor(fileMap, indexTree) {
 
   window.fetch = function (input, init) {
     const url = typeof input === "string" ? input : (input && input.url) || "";
+
+    // The engine's _initSettings does a relative fetch("scummvm.ini") to
+    // seed the config on first run. With no file on the server this 404s
+    // harmlessly, but we can silence it by returning an empty response.
+    if (url === "scummvm.ini" || url.endsWith("/scummvm.ini")) {
+      return Promise.resolve(new Response("", { status: 200 }));
+    }
+
     if (!url.startsWith(GAME_PATH + "/")) {
       return realFetch.call(this, input, init);
     }

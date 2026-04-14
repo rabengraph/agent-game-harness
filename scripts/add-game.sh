@@ -111,4 +111,4 @@ log "regenerating index.json tree under $DATA_DIR"
 python3 "$INDEX_SCRIPT" "$DATA_DIR"
 
 log "done. Launch with:"
-log "  http://127.0.0.1:5173/routes/game.html?game=$GAME_ID"
+log "  http://127.0.0.1:5173/game?game=$GAME_ID"

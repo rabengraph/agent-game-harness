@@ -1,7 +1,7 @@
-# scummbar
+# Scummbar Game Harness
 
-Agent-first browser harness for running ScummVM games with symbolic state
-exposed to AI agents (e.g. Claude).
+Harness for ScummVM games. Agent-first browser harness for running ScummVM
+games with symbolic state exposed to AI agents (e.g. Claude).
 
 This repo is the **app shell and deployment target** for an AI-agent proof
 of concept. It pairs with a ScummVM fork (`rabengraph/scummvm`, branch
@@ -21,7 +21,7 @@ The central question this POC tries to answer:
   tweaks. The fork's `master` stays as a pristine mirror of upstream
   ScummVM; all POC work lives on `develop`. Canonical schema doc:
   `engines/scumm/AGENT_HARNESS.md`.
-- **`scummbar`** (this repo) — homepage, `/game` route,
+- **`scummbar`** (this repo) — briefing page, `/game` route,
   overlays, state panel, mock mode, startup scripts, hosting config,
   and the Claude runbook.
 
@@ -48,7 +48,7 @@ pnpm start
 Use mock telemetry:
 
 ```
-http://127.0.0.1:5173/routes/game.html?mock=1
+http://127.0.0.1:5173/game?mock=1
 ```
 
 `?mock=1` activates `web/shared/mock.js`, which drives a small fake
@@ -59,14 +59,18 @@ can distinguish them.
 
 ## Routes
 
-- `/` — agent briefing page. Tells the agent what this site is, where
-  the game lives, and how to inspect symbolic state. Also contains a
-  machine-readable `#agent-brief` JSON blob.
-- `/game` — the actual playable game. Mounts the ScummVM wasm runtime,
-  exposes telemetry via `window.__scummState`, `#scumm-state`,
-  console tags, overlay boxes, and a debug state panel.
+- `/briefing` — agent briefing page. Tells the agent what this site is,
+  where the game lives, and how to inspect symbolic state. Also contains
+  a machine-readable `#agent-brief` JSON blob. (`/` redirects here.)
+- `/game` — the actual playable game. Default state is the upload UI;
+  pre-staged local games skip it via `/game?game=<id>`. Mounts the
+  ScummVM wasm runtime and exposes telemetry via `window.__scummState`,
+  `#scumm-state`, console tags, overlay boxes, and a debug state panel.
 - `/status` — optional debug view of the latest snapshot and event
   history. Useful during development.
+
+The Vercel config also redirects the legacy `/routes/*` paths to the new
+URLs (see `vercel.json`).
 
 ## Game files
 

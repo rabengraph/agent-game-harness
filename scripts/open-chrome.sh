@@ -15,7 +15,7 @@ PORT="${PORT:-5173}"
 HOST="${HOST:-127.0.0.1}"
 PROFILE_DIR="${CHROME_PROFILE:-$ROOT/state/chrome-profile}"
 
-URL="http://${HOST}:${PORT}/routes/index.html"
+URL="http://${HOST}:${PORT}/briefing"
 
 log() { printf "\033[1;36m[open-chrome]\033[0m %s\n" "$*"; }
 

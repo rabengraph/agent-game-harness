@@ -1,4 +1,4 @@
-# Browser Harness
+# Browser Harness — Scummbar Game Harness
 
 Lets an AI agent drive ScummVM from the terminal via `eval` on `window.__scumm*` globals.
 
@@ -27,8 +27,11 @@ pnpm browser:close                         # kill browser
 ## Usage
 
 ```bash
-# Navigate to game
-pnpm browser:eval -- "location.href='/routes/game.html?game=monkey1'"
+# Navigate to game (upload UI)
+pnpm browser:eval -- "location.href='/game'"
+
+# Navigate to a pre-staged local game (see scripts/add-game.sh)
+pnpm browser:eval -- "location.href='/game?game=monkey1'"
 
 # Read state
 pnpm browser:eval -- "__scummRead()"

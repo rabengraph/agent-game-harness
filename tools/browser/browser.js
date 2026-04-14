@@ -18,7 +18,7 @@ const net = require("net");
 const readline = require("readline");
 
 const BASE_URL = process.env.SCUMM_URL || "http://127.0.0.1:5173";
-const BRIEF_URL = `${BASE_URL}/routes/`;
+const BRIEF_URL = `${BASE_URL}/briefing`;
 const SCREENSHOT_DIR = path.join(__dirname, "../../state");
 const USER_DATA_DIR = path.join(__dirname, ".chromium-profile");
 const CDP_PORT = 9222;

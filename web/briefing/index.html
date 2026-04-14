@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>ScummBar — Briefing</title>
+    <title>Scummbar Game Harness — Briefing</title>
     <link rel="stylesheet" href="/shared/styles.css" />
     <script defer src="/shared/agent-brief.js"></script>
   </head>
@@ -12,23 +12,30 @@
     <main class="brief">
       <header class="brief__header">
         <p class="brief__eyebrow">AGENT BRIEFING</p>
-        <h1 class="brief__title">scummbar</h1>
+        <h1 class="brief__title">Scummbar Game Harness</h1>
         <p class="brief__subtitle">
-          Play <a href="/routes/game?game=monkey1"><code>/routes/game?game=monkey1</code></a>
-          using the <code>window.__scumm*</code> API.
+          Harness for ScummVM games. Open
+          <a href="/game"><code>/game</code></a> to upload a game folder
+          and start playing through the <code>window.__scumm*</code> API.
         </p>
       </header>
 
       <section class="brief__section">
         <h2>Quick start</h2>
         <ol>
-          <li>Navigate to <code>/routes/game?game=monkey1</code></li>
+          <li>Navigate to <a href="/game"><code>/game</code></a> and
+            upload a ScummVM game folder when prompted.</li>
           <li>Wait for <code>__scummActionsReady()</code> to return true</li>
           <li>Read state: <code>__scummRead()</code></li>
           <li>Act: <code>__scummDoSentence({verb, objectA})</code></li>
           <li>Observe: <code>__scummEventsSince(cursor)</code></li>
           <li>Repeat 3-5</li>
         </ol>
+        <p class="panel__hint">
+          Local dev with a pre-staged game folder can skip the upload UI
+          via <code>/game?game=monkey1</code> (see
+          <code>scripts/add-game.sh</code>).
+        </p>
       </section>
 
       <section class="brief__section">
@@ -133,9 +140,18 @@ __scummDoSentence({ verb: walk.id, objectA: door.id });
 
     <script id="agent-brief" type="application/json">
 {
-  "version": 6,
-  "mission": "Play the adventure game at /routes/game?game=monkey1 using the window.__scumm* API.",
-  "gameRoute": "/routes/game?game=monkey1",
+  "version": 7,
+  "name": "Scummbar Game Harness",
+  "tagline": "Harness for ScummVM games.",
+  "mission": "Play the adventure game at /game using the window.__scumm* API. Upload a game folder on first visit.",
+  "routes": {
+    "briefing": "/briefing",
+    "game": "/game",
+    "status": "/status"
+  },
+  "gameRoute": "/game",
+  "mockRoute": "/game?mock=1",
+  "localPreStagedGame": "/game?game=<id>  (only for local dev with scripts/add-game.sh)",
   "api": {
     "read": {
       "__scummRead()": "Full state snapshot",

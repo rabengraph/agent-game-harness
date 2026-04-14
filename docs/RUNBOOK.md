@@ -1,7 +1,7 @@
 # Runbook — local setup from zero
 
 This runbook takes a fresh machine and walks it through everything
-needed to get the scummbar running a real SCUMM game in a
+needed to get the Scummbar Game Harness running a real SCUMM game in a
 browser tab, with the v1 telemetry bridge streaming live state into
 the harness UI. It's the path we actually followed, written up after
 the fact — every step below has been exercised end-to-end.
@@ -11,7 +11,7 @@ a map; the scripts are the territory.
 
 ## What you end up with
 
-- `http://127.0.0.1:5173/routes/game.html?game=monkey1` running the
+- `http://127.0.0.1:5173/game?game=monkey1` running the
   real Emscripten ScummVM fork, rendering Monkey Island (or whatever
   SCUMM game you dropped in).
 - The right-hand state panel updating live (room, ego position,
@@ -33,7 +33,9 @@ scummbar/            <- this repo, the browser harness
 │   ├── build-scummvm.sh       <- clones + builds the fork, copies artifacts
 │   └── add-game.sh            <- drops a game into web/data/games/<id>/
 ├── web/
-│   ├── routes/game.html       <- the live /game page (boots scummvm.js)
+│   ├── briefing/index.html    <- the /briefing agent control page
+│   ├── game/index.html        <- the live /game page (boots scummvm.js)
+│   ├── status/index.html      <- the /status debug page
 │   ├── shared/                <- bridge.js, overlay.js, state-panel.js, mock.js
 │   ├── public/scummvm/        <- build output lands here (scummvm.js/.wasm)
 │   └── data/                  <- served as /data/* — engine reads from here
@@ -140,7 +142,7 @@ panel ticks and the overlay draws boxes on the fake room.
 
 ```bash
 pnpm dev
-# -> http://127.0.0.1:5173/routes/game.html?mock=1
+# -> http://127.0.0.1:5173/game?mock=1
 ```
 
 If the mock doesn't animate, fix that before touching the fork —
@@ -227,7 +229,7 @@ On success you'll see:
 [add-game] placed 58 file(s) under .../web/data/games/monkey1
 [add-game] regenerating index.json tree under .../web/data
 [add-game] done. Launch with:
-[add-game]   http://127.0.0.1:5173/routes/game.html?game=monkey1
+[add-game]   http://127.0.0.1:5173/game?game=monkey1
 ```
 
 You can add as many games as you want — they coexist, and
@@ -253,7 +255,7 @@ pnpm dev
 Then open:
 
 ```
-http://127.0.0.1:5173/routes/game.html?game=monkey1
+http://127.0.0.1:5173/game?game=monkey1
 ```
 
 You should see:
@@ -386,6 +388,6 @@ The full v1 schema lives in the fork at
 - Mock telemetry: `web/shared/mock.js`
 - Build script: `scripts/build-scummvm.sh`
 - Add-game script: `scripts/add-game.sh`
-- The page you're actually loading: `web/routes/game.html`
+- The page you're actually loading: `web/game/index.html`
 
 Happy agenting.

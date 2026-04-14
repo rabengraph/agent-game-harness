@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.15.4",
-  "description": "Agent-first browser harness for ScummVM with symbolic state for AI agents",
+  "description": "Scummbar Game Harness — agent-first browser harness for ScummVM games with symbolic state for AI agents",
   "scripts": {
     "bootstrap": "./scripts/bootstrap.sh",
     "build": "./scripts/vercel-build.sh",

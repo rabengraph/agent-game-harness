@@ -140,7 +140,7 @@ Calculate door center from its box: `centerX = box.x + box.w/2`, `centerY = box.
 
 ## Startup sequence
 
-1. `node tools/browser/browser.js open "http://127.0.0.1:5173/routes/game.html?game=monkey1"`
+1. `node tools/browser/browser.js open "http://127.0.0.1:5173/game?game=monkey1"`
 2. Wait a few seconds for WASM to load
 3. `node tools/browser/browser.js eval "__scummActionsReady()"` — retry until true
 4. `node tools/browser/browser.js state` — read initial state

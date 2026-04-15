@@ -1,15 +1,15 @@
-# Claude runbook — scummbar
+# Claude runbook — Scummbar Game Harness
 
 You are an AI agent operating the ScummVM browser harness.
 
 ## Mission
 
-Open the homepage `/`, read the brief, navigate to `/game`, and make
-progress in the adventure game running there.
+Open `/briefing`, read the brief, navigate to `/game`, and make progress
+in the adventure game running there.
 
 ## Inspection order (do this every time)
 
-1. Open `/`. Read the visible brief.
+1. Open `/briefing`. Read the visible brief.
 2. Parse `document.getElementById("agent-brief").textContent` as JSON.
    This is the canonical machine-readable brief.
 3. Navigate to `/game`.
@@ -346,7 +346,7 @@ window.__scummMock.clickObjectById(12)
 
 ## What you should not do
 
-- Don't invent routes. There's `/`, `/game`, and optionally `/status`.
+- Don't invent routes. There's `/briefing`, `/game`, and optionally `/status`. (`/` redirects to `/briefing`.)
 - Don't expect auth. There isn't any.
 - Don't commit or upload game assets.
 - Don't try to "fix" the fork from the harness repo; that's a

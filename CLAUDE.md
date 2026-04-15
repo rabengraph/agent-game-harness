@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agent-first browser harness for running ScummVM games with symbolic state exposed to AI agents. This is a proof-of-concept answering: **Does exposing symbolic SCUMM state in-browser materially improve an agent's ability to play the game compared to pure vision?**
+**Scummbar Game Harness** — agent-first browser harness for running ScummVM games with symbolic state exposed to AI agents. This is a proof-of-concept answering: **Does exposing symbolic SCUMM state in-browser materially improve an agent's ability to play the game compared to pure vision?**
 
 Two-repo architecture developed in parallel:
-- **This repo (`scummbar`)** — app shell, homepage, game route, overlays, state panel, scripts, deployment
+- **This repo (`scummbar`)** — app shell, briefing page, game route, overlays, state panel, scripts, deployment
 - **ScummVM fork** — SCUMM engine telemetry hooks, C++ to JavaScript bridge
 
 ## ScummVM Fork (vendor/scummvm-agent/)
@@ -43,11 +43,18 @@ pnpm dev                    # or ./scripts/start-dev.sh
 
 ## Key Routes
 
-- `/routes/` — Agent briefing page with `#agent-brief` JSON and API reference
-- `/routes/game.html?game=monkey1` — ScummVM wasm runtime with telemetry
+- `/briefing` — Agent briefing page with `#agent-brief` JSON and API reference
+- `/game` — ScummVM wasm runtime. Default state shows the upload UI;
+  state and events are exposed via `window.__scumm*`.
+  - `?game=<id>` — auto-launch a game pre-staged via `scripts/add-game.sh`
+    (local dev only; e.g. `/game?game=monkey1`)
   - `?mock=1` — use fake telemetry (no fork build needed)
   - `?overlay=1` — start with debug overlay visible
-- `/routes/status.html` — Debug view of snapshot and event history
+- `/status` — Debug view of snapshot and event history
+- `/` redirects to `/briefing`
+
+The Vercel config (`vercel.json`) also redirects the legacy `/routes/*`
+paths to the new URLs.
 
 Press `O` on the game page to toggle debug overlay.
 
@@ -55,8 +62,11 @@ Press `O` on the game page to toggle debug overlay.
 
 ```
 web/
-├── routes/          # HTML pages (index.html, game.html, status.html)
-├── shared/          # JS modules: bridge.js, overlay.js, state-panel.js, mock.js
+├── index.html       # Tiny redirect: / -> /briefing (local-dev fallback)
+├── briefing/        # /briefing — agent briefing page
+├── game/            # /game     — ScummVM wasm runtime + upload UI
+├── status/          # /status   — debug snapshot + recent events
+├── shared/          # JS modules: bridge.js, overlay.js, state-panel.js, mock.js, upload.js
 ├── public/scummvm/  # Build artifacts (scummvm.js, .wasm) - populated by build script
 ├── data/            # Engine runtime assets + games/<id>/ - gitignored
 └── dev-tools/       # smoke.html for bridge contract testing
@@ -110,14 +120,17 @@ pnpm browser:eval -- "__scummSelectDialog(0)"
 # Get events since cursor
 pnpm browser:eval -- "__scummEventsSince(0)"
 
-# Navigate
-pnpm browser:eval -- "location.href='/routes/game.html?game=monkey1'"
+# Navigate (upload UI)
+pnpm browser:eval -- "location.href='/game'"
+
+# Navigate to a pre-staged local game
+pnpm browser:eval -- "location.href='/game?game=monkey1'"
 ```
 
 ### Agent play loop
 
 1. `pnpm browser:open` — opens briefing page
-2. `pnpm browser:eval -- "location.href='/routes/game.html?game=monkey1'"` — navigate to game
+2. `pnpm browser:eval -- "location.href='/game?game=monkey1'"` — navigate to game (or `/game` for the upload UI)
 3. `pnpm browser:eval -- "__scummRead()"` — read state (room, objects, verbs, inventory, ego)
 4. Decide next action from state
 5. `pnpm browser:eval -- "__scummDoSentence({verb:V, objectA:A})"` — act
@@ -132,7 +145,7 @@ pnpm browser:eval -- "location.href='/routes/game.html?game=monkey1'"
 
 **Check:** `__scummActionsReady()` — call before first action. Check `state.inputLocked` before each action.
 
-The briefing page at `/routes/` has the full API reference as JSON in `#agent-brief`.
+The briefing page at `/briefing` has the full API reference as JSON in `#agent-brief`.
 
 ## Important Notes
 

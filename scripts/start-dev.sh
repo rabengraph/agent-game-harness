@@ -22,9 +22,9 @@ if [ ! -f "$ROOT/web/public/scummvm/scummvm.js" ]; then
 fi
 
 log "routes:"
-printf "  http://%s:%s/routes/index.html   (/)\n" "$HOST" "$PORT"
-printf "  http://%s:%s/routes/game.html    (/game)\n" "$HOST" "$PORT"
-printf "  http://%s:%s/routes/status.html  (/status)\n" "$HOST" "$PORT"
+printf "  http://%s:%s/briefing   (briefing — agent control page)\n" "$HOST" "$PORT"
+printf "  http://%s:%s/game       (start the game; upload a folder or use ?game=<id>)\n" "$HOST" "$PORT"
+printf "  http://%s:%s/status     (debug snapshot + recent events)\n" "$HOST" "$PORT"
 log "press ctrl-c to stop"
 
 # http-server is listed as a devDependency; use the local binary when

@@ -22,28 +22,30 @@ upstream. The harness's `scripts/build-scummvm.sh` points at
 `develop` by default via `SCUMMVM_AGENT_REMOTE` /
 `SCUMMVM_AGENT_BRANCH`.
 
-### Repo 2 — `scummbar` (this repo)
+### Repo 2 — `scummbar` (this repo, "Scummbar Game Harness")
 Owns everything the agent sees and everything needed to run the site:
 
-- Homepage `/` with the agent brief (HTML and JSON)
-- `/game` route hosting the ScummVM wasm runtime
+- `/briefing` page with the agent brief (HTML and JSON). `/` redirects here.
+- `/game` route hosting the ScummVM wasm runtime + upload UI
 - Optional `/status` debug route
 - Shared browser modules: `bridge.js`, `overlay.js`, `state-panel.js`,
-  `agent-brief.js`, `mock.js`, `styles.css`
+  `agent-brief.js`, `mock.js`, `upload.js`, `styles.css`
 - `mock.js` — fake telemetry gated on `/game?mock=1`, used to
   validate the harness end-to-end without the fork build
 - Startup scripts: `bootstrap.sh`, `build-scummvm.sh`, `start-dev.sh`,
   `open-chrome.sh`
-- Vercel deployment config
+- Vercel deployment config (clean URLs + redirects from legacy
+  `/routes/*` paths)
 - Claude runbook
 
 ## Route design
 
 ```text
 Agent
-  -> homepage `/`
+  -> /briefing
     -> reads mission + operating rules (HTML + #agent-brief JSON)
-    -> navigates to `/game`
+    -> navigates to /game
+      -> upload UI (or auto-launch with ?game=<id> locally)
       -> ScummVM wasm runtime
         -> SCUMM engine telemetry
           -> window.__scummState
@@ -52,8 +54,9 @@ Agent
           -> optional overlay + state panel
 ```
 
-`/` is treated as an **agent control page**, not a marketing homepage.
-`/game` is the only actual play surface.
+`/briefing` is treated as an **agent control page**, not a marketing
+homepage. `/game` is the only actual play surface. `/` exists only as a
+redirect to `/briefing`.
 
 ## Telemetry flow
 

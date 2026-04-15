@@ -6,11 +6,15 @@
   "buildCommand": "./scripts/vercel-build.sh",
   "outputDirectory": "web",
   "redirects": [
-    { "source": "/", "destination": "/routes" }
-  ],
-  "rewrites": [
-    { "source": "/game", "destination": "/routes/game.html" },
-    { "source": "/status", "destination": "/routes/status.html" }
+    { "source": "/", "destination": "/briefing" },
+    { "source": "/routes", "destination": "/briefing" },
+    { "source": "/routes/", "destination": "/briefing" },
+    { "source": "/routes/index", "destination": "/briefing" },
+    { "source": "/routes/index.html", "destination": "/briefing" },
+    { "source": "/routes/game", "destination": "/game" },
+    { "source": "/routes/game.html", "destination": "/game" },
+    { "source": "/routes/status", "destination": "/status" },
+    { "source": "/routes/status.html", "destination": "/status" }
   ],
   "headers": [
     {

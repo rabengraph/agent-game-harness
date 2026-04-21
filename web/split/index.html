@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ScummBench — /split</title>
+    <link rel="stylesheet" href="/shared/styles.css" />
+    <script defer src="/_vercel/insights/script.js"></script>
+  </head>
+  <body class="page page-split">
+    <header class="split__header">
+      <a class="split__back" href="/briefing">← briefing</a>
+      <h1 class="split__title">/split — two agents, one screen</h1>
+      <div class="split__status" role="status" aria-live="polite">
+        <span id="status-1" class="split__badge">agent 1: booting…</span>
+        <span id="status-2" class="split__badge">agent 2: booting…</span>
+        <span id="action-count" class="split__badge split__badge--muted">actions: 0</span>
+      </div>
+      <button id="download-log" class="split__download" type="button">
+        Download log (NDJSON)
+      </button>
+    </header>
+
+    <main class="split__main">
+      <section class="split__pane">
+        <header class="split__pane-head">
+          <span class="split__pane-label">Agent 1</span>
+          <code>window.scumm1</code>
+        </header>
+        <iframe
+          id="frame-1"
+          class="split__frame"
+          data-src="/game?game=monkey1-demo"
+          title="Agent 1 — Monkey Island 1 demo"
+          allow="autoplay"
+        ></iframe>
+      </section>
+
+      <section class="split__pane">
+        <header class="split__pane-head">
+          <span class="split__pane-label">Agent 2</span>
+          <code>window.scumm2</code>
+        </header>
+        <iframe
+          id="frame-2"
+          class="split__frame"
+          data-src="/game?game=monkey1-demo"
+          title="Agent 2 — Monkey Island 1 demo"
+          allow="autoplay"
+        ></iframe>
+      </section>
+    </main>
+
+    <script type="module" src="/split/split.js"></script>
+  </body>
+</html>

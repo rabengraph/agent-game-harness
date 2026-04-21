@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>ScummBench — Briefing</title>
+    <title>ScummBench — Briefing (split mode)</title>
     <link rel="stylesheet" href="/shared/styles.css" />
     <script defer src="/shared/agent-brief.js"></script>
     <script defer src="/_vercel/insights/script.js"></script>
@@ -12,55 +12,64 @@
   <body class="page page-home">
     <main class="brief">
       <header class="brief__header">
-        <p class="brief__eyebrow">AGENT BRIEFING</p>
-        <h1 class="brief__title">ScummBench</h1>
+        <p class="brief__eyebrow">AGENT BRIEFING · SPLIT MODE</p>
+        <h1 class="brief__title">ScummBench — Dual Agent</h1>
         <p class="brief__subtitle">
-          Harness for ScummVM games. Play the
-          <a href="/game?game=monkey1-demo"><code>Monkey Island 1 demo</code></a>
-          or <a href="/game">upload your own game</a>, then drive it
-          through the <code>window.__scumm*</code> API.
+          Two agents, one browser window, one game each. Open
+          <a href="/split"><code>/split</code></a> and drive your side
+          via <code>window.scumm1</code> or <code>window.scumm2</code>.
+          The parent page records every API call you make.
         </p>
       </header>
 
       <section class="brief__section">
-        <h2>Quick start</h2>
+        <h2>Setup</h2>
         <ol>
-          <li>Open a game — either the pre-baked
-            <a href="/game?game=monkey1-demo"><code>/game?game=monkey1-demo</code></a>
-            (Monkey Island 1 demo) or
-            <a href="/game"><code>/game</code></a> to upload your own
-            ScummVM game folder.</li>
-          <li>Wait for <code>__scummActionsReady()</code> to return true</li>
-          <li>Read state: <code>__scummRead()</code></li>
-          <li>Act: <code>__scummDoSentence({verb, objectA})</code></li>
-          <li>Observe: <code>__scummEventsSince(cursor)</code></li>
-          <li>Repeat 3-5</li>
+          <li>Open <a href="/split"><code>/split</code></a>. Two iframes
+            boot Monkey Island 1 (demo) in parallel.</li>
+          <li>You are assigned a side. Agent 1 uses
+            <code>window.scumm1</code>. Agent 2 uses
+            <code>window.scumm2</code>. Stay on your side.</li>
+          <li>Wait until <code>scumm1.actionsReady()</code> (or
+            <code>scumm2.actionsReady()</code>) returns <code>true</code>.</li>
+          <li>Read state, act, observe, repeat — see patterns below.</li>
         </ol>
         <p class="panel__hint">
-          For local dev you can also pre-stage any other game folder via
-          <code>scripts/add-game.sh</code> and load it with
-          <code>/game?game=&lt;id&gt;</code>.
+          Every call you make to <code>doSentence</code>,
+          <code>selectDialog</code>, <code>skipMessage</code>,
+          <code>walkTo</code>, <code>clickAt</code> is appended to
+          <code>window.__splitLog</code> as an NDJSON row with
+          <code>agent</code>, <code>t</code>, <code>method</code>,
+          <code>args</code>, <code>ok</code>, <code>result</code> (or
+          <code>error</code>), <code>durMs</code>, and
+          <code>stateSeq</code>. Click
+          <strong>Download log (NDJSON)</strong> in the header to save
+          the run.
         </p>
       </section>
 
       <section class="brief__section">
-        <h2>Read API</h2>
+        <h2>Read API (from the parent)</h2>
         <table>
-          <tr><td><code>__scummRead()</code></td><td>Full state snapshot (room, ego, objects, verbs, inventory, actors, dialogChoices)</td></tr>
-          <tr><td><code>__scummEventsSince(cursor)</code></td><td>Returns <code>{events[], cursor}</code>. Pass cursor back next call for incremental reads.</td></tr>
-          <tr><td><code>__scummActionsReady()</code></td><td>True when WASM is loaded and actions work</td></tr>
+          <tr><td><code>scumm<i>N</i>.read()</code></td><td>Full state snapshot for your side (room, ego, objects, verbs, inventory, actors, dialogChoices).</td></tr>
+          <tr><td><code>scumm<i>N</i>.eventsSince(cursor)</code></td><td>Returns <code>{events[], cursor}</code>. Pass cursor back next call for incremental reads.</td></tr>
+          <tr><td><code>scumm<i>N</i>.actionsReady()</code></td><td>True when this side's WASM is loaded and accepting actions.</td></tr>
         </table>
       </section>
 
       <section class="brief__section">
         <h2>Action API</h2>
         <table>
-          <tr><td><code>__scummDoSentence({verb, objectA, objectB?})</code></td><td>Preferred. Atomic verb+object, auto-walks ego.</td></tr>
-          <tr><td><code>__scummSelectDialog(index)</code></td><td>Pick dialog choice (0-indexed into <code>dialogChoices[]</code>)</td></tr>
-          <tr><td><code>__scummSkipMessage()</code></td><td>Dismiss current dialog text</td></tr>
-          <tr><td><code>__scummWalkTo(x, y)</code></td><td>Walk ego to room coordinates</td></tr>
-          <tr><td><code>__scummClickAt(x, y)</code></td><td>Last resort. Click at room coordinates.</td></tr>
+          <tr><td><code>scumm<i>N</i>.doSentence({verb, objectA, objectB?})</code></td><td>Preferred. Atomic verb+object, auto-walks ego.</td></tr>
+          <tr><td><code>scumm<i>N</i>.selectDialog(index)</code></td><td>Pick dialog choice (0-indexed into <code>dialogChoices[]</code>).</td></tr>
+          <tr><td><code>scumm<i>N</i>.skipMessage()</code></td><td>Dismiss current dialog text.</td></tr>
+          <tr><td><code>scumm<i>N</i>.walkTo(x, y)</code></td><td>Walk ego to room coordinates.</td></tr>
+          <tr><td><code>scumm<i>N</i>.clickAt(x, y)</code></td><td>Last resort. Click at room coordinates.</td></tr>
         </table>
+        <p class="panel__hint">
+          Where <i>N</i> is <code>1</code> or <code>2</code>, matching
+          the side assigned to you.
+        </p>
       </section>
 
       <section class="brief__section">
@@ -79,7 +88,7 @@
       </section>
 
       <section class="brief__section">
-        <h2>Key events</h2>
+        <h2>Key events (via <code>eventsSince</code>)</h2>
         <ul>
           <li><code>egoArrived</code> — ego finished walking</li>
           <li><code>roomEntered</code> — room transition completed</li>
@@ -92,48 +101,74 @@
       <section class="brief__section">
         <h2>Patterns</h2>
         <h3>Look at / use an object</h3>
-        <pre><code>const s = __scummRead();
-const verb = s.verbs.find(v => v.name.toLowerCase().includes("look"));
-const obj = s.roomObjects.find(o => o.name === "poster");
-__scummDoSentence({ verb: verb.id, objectA: obj.id });</code></pre>
+        <pre><code>const s = scumm1.read();
+const verb = s.verbs.find(v =&gt; v.name.toLowerCase().includes("look"));
+const obj = s.roomObjects.find(o =&gt; o.name === "poster");
+scumm1.doSentence({ verb: verb.id, objectA: obj.id });</code></pre>
 
         <h3>Conversation</h3>
-        <pre><code>// 1. Talk to NPC: __scummDoSentence({ verb: talkId, objectA: npcId })
-// 2. Poll __scummRead() until dialogChoices.length > 0
-// 3. Pick: __scummSelectDialog(0)
-// 4. Advance text: __scummSkipMessage() when haveMsg > 0
+        <pre><code>// 1. Talk to NPC: scumm1.doSentence({ verb: talkId, objectA: npcId })
+// 2. Poll scumm1.read() until dialogChoices.length &gt; 0
+// 3. Pick: scumm1.selectDialog(0)
+// 4. Advance text: scumm1.skipMessage() when haveMsg &gt; 0
 // 5. Repeat until dialogChoices empty and haveMsg === 0</code></pre>
 
         <h3>Room navigation</h3>
-        <pre><code>const s = __scummRead();
-const door = s.roomObjects.find(o => o.name === "door");
-const walk = s.verbs.find(v => v.name.toLowerCase().includes("walk"));
-__scummDoSentence({ verb: walk.id, objectA: door.id });
+        <pre><code>const s = scumm1.read();
+const door = s.roomObjects.find(o =&gt; o.name === "door");
+const walk = s.verbs.find(v =&gt; v.name.toLowerCase().includes("walk"));
+scumm1.doSentence({ verb: walk.id, objectA: door.id });
 // Wait for roomEntered event, then re-read state.</code></pre>
+
+        <h3>Incremental event reads</h3>
+        <pre><code>let cursor = 0;
+setInterval(() =&gt; {
+  const { events, cursor: c } = scumm1.eventsSince(cursor);
+  cursor = c;
+  for (const e of events) {
+    if (e.type === "roomEntered") console.log("entered", e.room);
+  }
+}, 500);</code></pre>
       </section>
 
       <section class="brief__section">
         <h2>Strategy</h2>
         <ol>
-          <li>Use <code>__scummRead()</code> as your primary orientation tool — inspect room objects, actors, verbs, and inventory to understand where you are and what you can do. <strong>Do not</strong> take screenshots for routine orientation.</li>
-          <li>Use <code>__scummEventsSince(cursor)</code> to efficiently catch up on what happened after an action — dialog text, room changes, cutscene starts/ends. This is far cheaper than re-reading full state or taking screenshots.</li>
-          <li>Use screenshots only as a fallback when the API state is ambiguous (e.g. spatial layout unclear, need to visually identify something the state doesn't describe). Screenshots are expensive in tokens.</li>
-          <li>Plan before acting: read the full state, identify available objects and NPCs, form a goal, then execute. Don't wander blindly.</li>
-          <li>Collect everything you can. The majority of puzzle solutions involve using inventory items — on objects, on other items, or giving them to NPCs. <strong>Pick up anything not nailed down.</strong></li>
-          <li>Build a mental map of room connections as you explore. Track which exits lead where.</li>
-          <li>Talk to NPCs to gather information — adventure games progress through conversation and item use.</li>
+          <li>Use <code>scumm<i>N</i>.read()</code> as your primary orientation tool — inspect room objects, actors, verbs, and inventory to understand where you are and what you can do. <strong>Do not</strong> take screenshots for routine orientation.</li>
+          <li>Use <code>scumm<i>N</i>.eventsSince(cursor)</code> to efficiently catch up on what happened after an action — dialog text, room changes, cutscene starts/ends. Far cheaper than re-reading full state or taking screenshots.</li>
+          <li>Plan before acting: read the full state, identify available objects and NPCs, form a goal, then execute.</li>
+          <li>Collect everything you can. Most puzzles involve using inventory items — on objects, on other items, or giving them to NPCs. Pick up anything not nailed down.</li>
+          <li>Build a mental map of room connections as you explore.</li>
+          <li>Talk to NPCs to gather information.</li>
+          <li>Do not touch <code>scumm2</code> if you are agent 1, and vice versa. The log attributes every call to an <code>agent</code> id — crossing over corrupts the scoring data.</li>
         </ol>
       </section>
 
       <section class="brief__section">
         <h2>Rules</h2>
         <ol>
-          <li>Check <code>__scummActionsReady()</code> before first action.</li>
-          <li>Check <code>inputLocked</code> before each action.</li>
-          <li>Prefer <code>doSentence</code> over clickAt.</li>
+          <li>Check <code>scumm<i>N</i>.actionsReady()</code> before your first action.</li>
+          <li>Check <code>state.inputLocked</code> before each action.</li>
+          <li>Prefer <code>doSentence</code> over <code>clickAt</code>.</li>
           <li>Use events (not polling state) to detect action results.</li>
           <li>Avoid repeating failed actions.</li>
+          <li>Stay on your assigned side.</li>
         </ol>
+      </section>
+
+      <section class="brief__section">
+        <h2>Recorded log (<code>window.__splitLog</code>)</h2>
+        <p>
+          Each row is a single JSON value. Rows include a <code>meta</code>
+          row at index 0, a <code>ready</code> row per side once that side
+          boots, and one <code>action</code> row per API call from either
+          agent.
+        </p>
+        <pre><code>{"kind":"meta","runId":"r-1713710410","startedAt":1713710410822,"gameId":"monkey1-demo","schemaVersion":1,"t":1713710410822,"tRel":0}
+{"kind":"ready","agent":1,"t":1713710416100,"tRel":5278,"gameName":"Monkey Island","gameId":5,"room":1}
+{"kind":"action","agent":1,"t":1713710417511,"tRel":6689,"method":"doSentence","args":{"verb":8,"objectA":429},"ok":true,"result":true,"durMs":0.42,"stateSeq":814}
+{"kind":"action","agent":2,"t":1713710417620,"tRel":6798,"method":"walkTo","args":[120,80],"ok":true,"result":null,"durMs":0.31,"stateSeq":611}</code></pre>
+        <p>Download the current run any time via the header button, or from the console: <code>__splitDownload()</code>.</p>
       </section>
 
       <section class="brief__section">
@@ -145,34 +180,53 @@ __scummDoSentence({ verb: walk.id, objectA: door.id });
 
     <script id="agent-brief" type="application/json">
 {
-  "version": 8,
-  "name": "ScummBench",
-  "tagline": "Harness for ScummVM games.",
-  "mission": "Play the adventure game at /game using the window.__scumm* API. Start with the pre-baked Monkey Island 1 demo or upload your own game.",
+  "version": 9,
+  "mode": "split",
+  "name": "ScummBench — Dual Agent",
+  "tagline": "Two agents, one browser window, one game each.",
+  "mission": "Play the pre-baked Monkey Island 1 demo at /split using the scummN.* API on the parent window. Every call is recorded.",
   "routes": {
     "briefing": "/briefing",
-    "game": "/game",
-    "status": "/status"
+    "split": "/split"
   },
-  "gameRoute": "/game",
-  "mockRoute": "/game?mock=1",
-  "prebakedGames": [
-    { "id": "monkey1-demo", "title": "The Secret of Monkey Island (demo)", "url": "/game?game=monkey1-demo" }
-  ],
-  "uploadGame": "/game  (shows an upload UI when no ?game= param is set)",
-  "localPreStagedGame": "/game?game=<id>  (any id added locally via scripts/add-game.sh)",
+  "splitRoute": "/split",
+  "game": { "id": "monkey1-demo", "title": "The Secret of Monkey Island (demo)" },
+  "sides": {
+    "1": { "handle": "window.scumm1", "iframeId": "frame-1" },
+    "2": { "handle": "window.scumm2", "iframeId": "frame-2" }
+  },
   "api": {
     "read": {
-      "__scummRead()": "Full state snapshot",
-      "__scummEventsSince(cursor)": "{ events[], cursor } — incremental event reads",
-      "__scummActionsReady()": "True when WASM loaded"
+      "scummN.read()": "Full state snapshot for your side",
+      "scummN.eventsSince(cursor)": "{ events[], cursor } — incremental event reads",
+      "scummN.actionsReady()": "True when this side's WASM is loaded"
     },
     "act": {
-      "__scummDoSentence({verb, objectA, objectB?})": "Preferred. Atomic verb+object, auto-walks.",
-      "__scummSelectDialog(index)": "Pick dialog choice (0-indexed)",
-      "__scummSkipMessage()": "Dismiss current dialog text",
-      "__scummWalkTo(x, y)": "Walk ego to room coords",
-      "__scummClickAt(x, y)": "Last resort click"
+      "scummN.doSentence({verb, objectA, objectB?})": "Preferred. Atomic verb+object, auto-walks.",
+      "scummN.selectDialog(index)": "Pick dialog choice (0-indexed)",
+      "scummN.skipMessage()": "Dismiss current dialog text",
+      "scummN.walkTo(x, y)": "Walk ego to room coords",
+      "scummN.clickAt(x, y)": "Last resort click"
+    }
+  },
+  "recorder": {
+    "store": "window.__splitLog",
+    "download": "window.__splitDownload()",
+    "downloadButton": "Download log (NDJSON) in the /split header",
+    "format": "NDJSON (one JSON value per line)",
+    "rowKinds": ["meta", "ready", "action"],
+    "actionRowSchema": {
+      "kind": "action",
+      "agent": "1 | 2",
+      "t": "wall-clock ms (Date.now)",
+      "tRel": "ms since run start",
+      "method": "doSentence | selectDialog | skipMessage | walkTo | clickAt",
+      "args": "original args (object or positional array)",
+      "ok": "true on success, false on throw",
+      "result": "return value (when ok)",
+      "error": "String(err) (when !ok)",
+      "durMs": "orig call duration in ms",
+      "stateSeq": "snapshot seq at call time (for correlation)"
     }
   },
   "stateFields": [
@@ -194,20 +248,21 @@ __scummDoSentence({ verb: walk.id, objectA: door.id });
     "inputLockChanged — cutscene start/end"
   ],
   "strategy": [
-    "Use __scummRead() as primary orientation — inspect room objects, actors, verbs, inventory. Do NOT screenshot for routine orientation.",
-    "Use __scummEventsSince(cursor) to catch up on what happened after actions — much cheaper than full state reads or screenshots.",
-    "Screenshots are a fallback only — use when API state is ambiguous (spatial layout, visual identification). They are expensive in tokens.",
-    "Plan before acting: read state, identify objects/NPCs, form a goal, then execute. Don't wander blindly.",
-    "Collect everything you can. The majority of puzzle solutions involve using inventory items — on objects, on other items, or giving them to NPCs. Pick up anything not nailed down.",
-    "Build a mental map of room connections as you explore. Track which exits lead where.",
-    "Talk to NPCs to gather information — adventure games progress through conversation and item use."
+    "Use scummN.read() as primary orientation.",
+    "Use scummN.eventsSince(cursor) to catch up after actions — much cheaper than screenshots.",
+    "Plan before acting: read state, identify objects/NPCs, form a goal, then execute.",
+    "Collect everything you can. Most puzzles involve inventory items.",
+    "Build a mental map of room connections.",
+    "Talk to NPCs to gather information.",
+    "Stay on your assigned side (scumm1 XOR scumm2)."
   ],
   "rules": [
-    "Check __scummActionsReady() before first action",
-    "Check inputLocked before each action",
+    "Check scummN.actionsReady() before first action",
+    "Check state.inputLocked before each action",
     "Prefer doSentence over clickAt",
     "Use events to detect results, not state polling",
-    "Avoid repeating failed actions"
+    "Avoid repeating failed actions",
+    "Never call into the other agent's handle"
   ]
 }
     </script>

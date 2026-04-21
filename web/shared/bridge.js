@@ -599,6 +599,19 @@ const RECORD_IGNORE_TOP_KEYS = new Set([
   "schema",
 ]);
 
+// Top-level arrays whose items are id-keyed. The diff matches items
+// between ticks by `id` rather than by array index, so a mid-array
+// insert or a reordering does not produce a cascade of false diffs
+// and the path (e.g. ["roomObjects", {id: 10}, "box", "x"]) stays
+// semantically stable across ticks.
+const RECORD_ID_KEYED_ARRAYS = new Set([
+  "roomObjects",
+  "inventory",
+  "verbs",
+  "dialogChoices",
+  "actors",
+]);
+
 const recorder = {
   timer: null,
   intervalMs: 0,
@@ -606,6 +619,36 @@ const recorder = {
   lastSnapshot: null,
   entries: [],
 };
+
+function allItemsHaveId(arr) {
+  for (const item of arr) {
+    if (!item || typeof item !== "object" || item.id == null) return false;
+  }
+  return true;
+}
+
+function diffArrayById(a, b, path) {
+  const out = [];
+  const aById = new Map();
+  for (const item of a) aById.set(item.id, item);
+  const seen = new Set();
+  for (const bItem of b) {
+    const id = bItem.id;
+    seen.add(id);
+    if (!aById.has(id)) {
+      out.push({ path: [...path, { id }], from: undefined, to: bItem, op: "add" });
+    } else {
+      const sub = deepDiff(aById.get(id), bItem, [...path, { id }]);
+      if (sub.length) out.push(...sub);
+    }
+  }
+  for (const [id, aItem] of aById) {
+    if (!seen.has(id)) {
+      out.push({ path: [...path, { id }], from: aItem, to: undefined, op: "remove" });
+    }
+  }
+  return out;
+}
 
 function deepDiff(a, b, path) {
   if (a === b) return [];
@@ -616,6 +659,17 @@ function deepDiff(a, b, path) {
   }
   const out = [];
   if (Array.isArray(a)) {
+    // Known id-keyed top-level arrays: match by id so reorderings and
+    // mid-array inserts don't produce false diffs. Requires every item
+    // on both sides to carry an `id` — otherwise fall back to index.
+    if (
+      path.length === 1 &&
+      RECORD_ID_KEYED_ARRAYS.has(path[0]) &&
+      allItemsHaveId(a) &&
+      allItemsHaveId(b)
+    ) {
+      return diffArrayById(a, b, path);
+    }
     const n = Math.max(a.length, b.length);
     for (let i = 0; i < n; i++) {
       if (i >= a.length) {

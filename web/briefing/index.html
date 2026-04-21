@@ -62,7 +62,7 @@
           <tr><td><code>__scummRecordStatus()</code></td><td><code>{running, intervalMs, entries, startedAt}</code></td></tr>
           <tr><td><code>__scummRecordClear()</code></td><td>Drop all buffered entries.</td></tr>
         </table>
-        <p>Entry shape: <code>{t, ms, diff: [{path, from, to, op?}]}</code> where <code>path</code> is a JSON pointer as an array (e.g. <code>["roomObjects", 3, "box", "x"]</code>) and <code>op</code> is <code>"add"</code> or <code>"remove"</code> on array length changes.</p>
+        <p>Entry shape: <code>{t, ms, diff: [{path, from, to, op?}]}</code>. <code>path</code> is a JSON-pointer-style array. For the id-keyed top-level arrays (<code>roomObjects</code>, <code>inventory</code>, <code>verbs</code>, <code>dialogChoices</code>, <code>actors</code>) items are matched by <code>id</code>, so path segments are <code>{id: N}</code> — e.g. <code>["roomObjects", {id: 10}, "box", "x"]</code>. That keeps identities stable across ticks even when the array is reordered. <code>op</code> is <code>"add"</code> or <code>"remove"</code> on membership changes.</p>
       </section>
 
       <section class="brief__section">
@@ -190,7 +190,7 @@ __scummDoSentence({ verb: walk.id, objectA: door.id });
     "record": {
       "__scummRecordStart({intervalMs?, clear?})": "Start polling snapshot at intervalMs (default 200, min 50). Buffers a diff per tick.",
       "__scummRecordStop()": "Stop polling. Entries remain readable.",
-      "__scummRecordRead(sinceIndex?)": "{ entries, nextIndex, total, running } — each entry is { t, ms, diff: [{path, from, to, op?}] }",
+      "__scummRecordRead(sinceIndex?)": "{ entries, nextIndex, total, running } — each entry is { t, ms, diff: [{path, from, to, op?}] }. Items in roomObjects/inventory/verbs/dialogChoices/actors are matched by id, so path segments for those arrays are {id:N} objects (stable across reorderings).",
       "__scummRecordStatus()": "{ running, intervalMs, entries, startedAt }",
       "__scummRecordClear()": "Drop buffered entries",
       "useFor": "Detect transient changes without dedicated events (NPC movement, object animation after a trigger)."

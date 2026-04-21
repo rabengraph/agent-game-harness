@@ -612,6 +612,23 @@ const RECORD_ID_KEYED_ARRAYS = new Set([
   "actors",
 ]);
 
+// Top-level scalar paths that carry high-signal gameplay transitions
+// and must NOT be hidden by the oscillation filter. A transient
+// message (msgText null -> text -> null) matches the oscillation
+// pattern by coincidence but is the opposite of noise — losing it is
+// losing the main signal the game is trying to communicate.
+// For these paths, even when oscillated, the summary reports every
+// distinct value seen in `seenValues` so the full transcript is
+// preserved.
+const RECORD_HIGH_SIGNAL_TOP_KEYS = new Set([
+  "msgText",       // transient flavour / NPC text
+  "haveMsg",       // 0/255/1 lifecycle of a message
+  "talkingActor",  // who is speaking
+  "inputLocked",   // control boundaries (cutscene enter/exit)
+  "inCutscene",
+  "room",          // room transition
+]);
+
 const recorder = {
   timer: null,
   intervalMs: 0,
@@ -814,28 +831,34 @@ window.__scummRecordSummary = function recordSummary(options) {
   const opts = options || {};
   const includeAnimation = opts.includeAnimation === true;
 
-  // path-string -> { path, initial, final, ticks, distinctValues }
+  // path-string -> { path, initial, final, ticks, seenKeys, seenValues }
+  // seenKeys (Set<string>) is used for dedup; seenValues preserves the
+  // original values in first-seen order.
   const byPath = new Map();
   for (const entry of recorder.entries) {
     for (const d of entry.diff) {
       const key = JSON.stringify(d.path);
       let rec = byPath.get(key);
       if (!rec) {
+        const fromKey = JSON.stringify(d.from);
+        const toKey = JSON.stringify(d.to);
         rec = {
           path: d.path,
           initial: d.from,
           final: d.to,
           ticks: 1,
-          distinctValues: new Set([
-            JSON.stringify(d.from),
-            JSON.stringify(d.to),
-          ]),
+          seenKeys: new Set([fromKey, toKey]),
+          seenValues: fromKey === toKey ? [d.from] : [d.from, d.to],
         };
         byPath.set(key, rec);
       } else {
         rec.final = d.to;
         rec.ticks += 1;
-        rec.distinctValues.add(JSON.stringify(d.to));
+        const toKey = JSON.stringify(d.to);
+        if (!rec.seenKeys.has(toKey)) {
+          rec.seenKeys.add(toKey);
+          rec.seenValues.push(d.to);
+        }
       }
     }
   }
@@ -843,18 +866,27 @@ window.__scummRecordSummary = function recordSummary(options) {
   const changes = [];
   let filteredAnimationPaths = 0;
   for (const rec of byPath.values()) {
-    const oscillated = rec.distinctValues.size < rec.ticks + 1;
-    if (oscillated && !includeAnimation) {
+    const oscillated = rec.seenKeys.size < rec.ticks + 1;
+    const isHighSignal =
+      rec.path.length === 1 &&
+      RECORD_HIGH_SIGNAL_TOP_KEYS.has(rec.path[0]);
+    if (oscillated && !includeAnimation && !isHighSignal) {
       filteredAnimationPaths++;
       continue;
     }
-    changes.push({
+    const row = {
       path: rec.path,
       from: rec.initial,
       to: rec.final,
       ticks: rec.ticks,
       oscillated,
-    });
+    };
+    // For oscillated high-signal paths, include every distinct value
+    // seen during the window. Otherwise `from`/`to` are the full story.
+    if (oscillated && isHighSignal) {
+      row.seenValues = rec.seenValues;
+    }
+    changes.push(row);
   }
 
   // Non-oscillating first (higher signal), then single-transition

@@ -297,6 +297,78 @@ describe("summary collapses per-tick noise to net change", () => {
     assert.equal(summary.changes[0].ticks, 2);
   });
 
+  it("high-signal paths (msgText, haveMsg, ...) survive the oscillation filter with seenValues", () => {
+    const { win, tick } = loadBridge();
+    win.__scummPublish({ schema: 1, seq: 1, msgText: null, haveMsg: 0 });
+    win.__scummRecordStart();
+    tick();
+    win.__scummPublish({
+      schema: 1, seq: 2,
+      msgText: "I think that bird will peck my hand off.",
+      haveMsg: 255,
+    });
+    tick();
+    win.__scummPublish({ schema: 1, seq: 3, msgText: null, haveMsg: 0 });
+    tick();
+    const summary = win.__scummRecordSummary();
+    const msgRow = summary.changes.find(
+      (c) => c.path.length === 1 && c.path[0] === "msgText"
+    );
+    assert.ok(msgRow, "msgText should be in changes even when oscillated");
+    assert.equal(msgRow.oscillated, true);
+    assert.deepEqual(plain(msgRow.seenValues), [
+      null,
+      "I think that bird will peck my hand off.",
+    ]);
+    const haveMsgRow = summary.changes.find(
+      (c) => c.path.length === 1 && c.path[0] === "haveMsg"
+    );
+    assert.ok(haveMsgRow);
+    assert.deepEqual(plain(haveMsgRow.seenValues), [0, 255]);
+  });
+
+  it("non-whitelisted oscillating paths stay filtered alongside msgText", () => {
+    const { win, tick } = loadBridge();
+    win.__scummPublish({
+      schema: 1, seq: 1,
+      msgText: null,
+      roomObjects: [{ id: 300, name: "torch", state: 0 }],
+    });
+    win.__scummRecordStart();
+    tick();
+    win.__scummPublish({
+      schema: 1, seq: 2,
+      msgText: "hello",
+      roomObjects: [{ id: 300, name: "torch", state: 1 }],
+    });
+    tick();
+    win.__scummPublish({
+      schema: 1, seq: 3,
+      msgText: null,
+      roomObjects: [{ id: 300, name: "torch", state: 0 }],
+    });
+    tick();
+    const summary = win.__scummRecordSummary();
+    // msgText survives, torch.state is filtered
+    assert.equal(summary.changes.length, 1);
+    assert.equal(summary.changes[0].path[0], "msgText");
+    assert.equal(summary.filteredAnimationPaths, 1);
+  });
+
+  it("seenValues reports each distinct message in first-seen order", () => {
+    const { win, tick } = loadBridge();
+    win.__scummPublish({ schema: 1, seq: 1, msgText: null });
+    win.__scummRecordStart();
+    tick();
+    for (const msg of ["first", null, "second", null, "first"]) {
+      win.__scummPublish({ schema: 1, seq: 1, msgText: msg });
+      tick();
+    }
+    const summary = win.__scummRecordSummary();
+    const msgRow = summary.changes.find((c) => c.path[0] === "msgText");
+    assert.deepEqual(plain(msgRow.seenValues), [null, "first", "second"]);
+  });
+
   it("non-oscillating changes are sorted before oscillating ones", () => {
     const { win, tick } = loadBridge();
     win.__scummPublish({

@@ -95,23 +95,21 @@ log "running fetch-prebaked-games.sh…"
 cache_status "after build, pre-prune"
 
 # ── 4. Prune caches to fit Vercel's 1.5 GB limit ─────────────────────
-# Without this, the cache snapshot (~2.9 GB compressed) exceeds the
-# cap and Vercel invalidates it, so every build starts cold.
+# Without this, the cache snapshot exceeds the cap and Vercel
+# invalidates it, so every build starts cold.
 #
-#   scummvm-agent: the full build tree (intermediate .o/.a files,
-#                  build-emscripten/, config.*) is ~2.5 GB. `git clean
-#                  -fdX` drops everything gitignored while keeping the
-#                  source tree + .git (needed to compute the cache key
-#                  on the next run without a 3-min reclone).
+#   scummvm-agent: the fork checkout + .git is ~2.7 GB even after
+#                  `git clean -fdX`, so caching it isn't viable on the
+#                  1.5 GB plan. We drop the whole dir and re-clone on
+#                  the next build (~3 min); the scummvm-build artifact
+#                  cache still skips the 7-min compile, which is the
+#                  bigger win.
 #   emsdk/downloads: installer tarballs already unpacked into
 #                  upstream/ and node/. Safe to drop; emsdk won't
 #                  re-download on subsequent `emsdk install` calls as
 #                  long as the activated tools remain.
 log "pruning caches before Vercel snapshots them…"
-if [ -d "$ROOT/vendor/scummvm-agent/.git" ]; then
-  git -C "$ROOT/vendor/scummvm-agent" clean -fdX >/dev/null 2>&1 \
-    || warn "git clean inside scummvm-agent failed; cache may stay large"
-fi
+rm -rf "$VERCEL_CACHE/scummvm-agent"
 rm -rf "$EMSDK_DIR/downloads"
 
 cache_status "after build, post-prune"

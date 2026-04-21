@@ -23,9 +23,6 @@ warn() { printf "\033[1;33m[vercel-build]\033[0m %s\n" "$*" >&2; }
 # ── Cache diagnostic helper ──────────────────────────────────────────
 # Print the state of each build cache directory. Emitted before and
 # after the build so Vercel logs make cache behaviour easy to verify.
-# (Follow-up bump: triggering a second build on the same branch to
-# confirm emsdk + scummvm-build caches are restored and we skip the
-# 7-min compile.)
 cache_status() {
   local label="$1"
   log "cache status ($label):"
@@ -118,10 +115,9 @@ cache_status "after build, pre-prune"
 #
 #   scummvm-agent: the fork checkout + .git is ~2.7 GB even after
 #                  `git clean -fdX`, so caching it isn't viable on the
-#                  1.5 GB plan. We drop the whole dir and re-clone on
-#                  the next build (~3 min); the scummvm-build artifact
-#                  cache still skips the 7-min compile, which is the
-#                  bigger win.
+#                  1.5 GB plan. We drop it and shallow-reclone next
+#                  build (~22 s); the scummvm-build artifact cache
+#                  still skips the 7-min compile — the bigger win.
 #   emsdk/downloads: installer tarballs already unpacked into
 #                  upstream/ and node/. Safe to drop; emsdk won't
 #                  re-download on subsequent `emsdk install` calls as

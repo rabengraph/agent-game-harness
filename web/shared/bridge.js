@@ -46,8 +46,12 @@ const state = {
 
 let _baselineVerbIds = new Set();
 let _baselineRoom = -1;
-// Small delay: after a room change we wait a few snapshots before locking the
-// baseline, because verbs may arrive across more than one snapshot tick.
+// Small delay: once visible verbs appear we still wait a few snapshots before
+// locking the baseline, because verbs may arrive across more than one tick.
+// The countdown only advances on ticks where we actually see visible action
+// verbs — otherwise intro cutscenes (verb bar hidden) would let the window
+// elapse with an empty baseline and every verb would later be mis-classified
+// as a dialog choice.
 let _baselineCountdown = 0;
 const BASELINE_SETTLE_TICKS = 3;
 
@@ -62,18 +66,27 @@ function updateVerbBaseline(snapshot) {
     _baselineCountdown = BASELINE_SETTLE_TICKS;
   }
 
-  // During the settle window, keep adding verb IDs to the baseline.
-  if (_baselineCountdown > 0) {
-    for (const v of verbs) {
-      if (v.visible && v.kind !== 1 /* not inventory */) {
-        _baselineVerbIds.add(v.id);
-      }
+  if (_baselineCountdown <= 0) return;
+
+  let sawVisibleVerb = false;
+  for (const v of verbs) {
+    if (v.visible && v.kind !== 1 /* not inventory */) {
+      _baselineVerbIds.add(v.id);
+      sawVisibleVerb = true;
     }
-    _baselineCountdown--;
   }
+
+  // Only consume a settle tick once the verb bar is actually on-screen.
+  if (sawVisibleVerb) _baselineCountdown--;
 }
 
 function classifyDialogChoices(snapshot) {
+  // No baseline yet (e.g. we're still in the intro cutscene and verbs
+  // haven't been visible on any tick). We cannot distinguish action verbs
+  // from dialog choices, so report no choices rather than treating the
+  // whole verb panel as a conversation.
+  if (_baselineVerbIds.size === 0) return [];
+
   const verbs = snapshot.verbs || [];
   // After the baseline is locked, any visible non-inventory verb whose ID
   // is NOT in the baseline set is a dialog choice.
@@ -389,6 +402,26 @@ window.__scummEventsSince = function eventsSince(sinceSeq) {
 // These functions call into the WASM module's exported agent_* functions.
 // The Module object must be available (WASM loaded) for these to work.
 
+// While a conversation is open (dialogChoices non-empty), the ego must not
+// be able to do anything other than pick a choice or dismiss a line. The
+// engine itself doesn't enforce this — the original UI enforces it
+// implicitly by replacing the verb bar with the choices. Agents have no
+// such visual constraint, so we gate the non-dialog actions at the API
+// layer. The bridge's own classifyDialogChoices() is authoritative here
+// because the engine-side heuristic mis-classifies MI1 dialog verbs.
+function isConversationOpen() {
+  const s = state.latest;
+  return !!(s && s.dialogChoices && s.dialogChoices.length > 0);
+}
+
+function rejectDuringConversation(action) {
+  console.warn(
+    "[SCUMM_BRIDGE] " + action +
+      " rejected: conversation open, pick a dialog choice with __scummSelectDialog or dismiss text with __scummSkipMessage first."
+  );
+  return false;
+}
+
 /**
  * Click a verb by its ID.
  *
@@ -404,6 +437,7 @@ window.__scummEventsSince = function eventsSince(sinceSeq) {
  */
 window.__scummClickVerb = function clickVerb(verbId) {
   console.warn("[SCUMM_BRIDGE] clickVerb is DEPRECATED — it can corrupt the verb UI. Use selectDialog, doSentence, or clickAt instead.");
+  if (isConversationOpen()) return rejectDuringConversation("clickVerb");
   if (typeof Module === "undefined" || !Module._agent_click_verb) {
     console.warn("[SCUMM_BRIDGE] Module not ready for clickVerb");
     return false;
@@ -420,6 +454,7 @@ window.__scummClickVerb = function clickVerb(verbId) {
  * @returns {boolean} - true if the command was sent
  */
 window.__scummClickAt = function clickAt(x, y) {
+  if (isConversationOpen()) return rejectDuringConversation("clickAt");
   if (typeof Module === "undefined" || !Module._agent_click_at) {
     console.warn("[SCUMM_BRIDGE] Module not ready for clickAt");
     return false;
@@ -436,6 +471,7 @@ window.__scummClickAt = function clickAt(x, y) {
  * @returns {boolean} - true if the command was sent
  */
 window.__scummWalkTo = function walkTo(x, y) {
+  if (isConversationOpen()) return rejectDuringConversation("walkTo");
   if (typeof Module === "undefined" || !Module._agent_walk_to) {
     console.warn("[SCUMM_BRIDGE] Module not ready for walkTo");
     return false;
@@ -453,6 +489,7 @@ window.__scummWalkTo = function walkTo(x, y) {
  * @returns {boolean} - true if the command was sent
  */
 window.__scummClickObject = function clickObject(objectId) {
+  if (isConversationOpen()) return rejectDuringConversation("clickObject");
   if (typeof Module === "undefined" || !Module._agent_click_object) {
     console.warn("[SCUMM_BRIDGE] Module not ready for clickObject");
     return false;
@@ -479,6 +516,7 @@ window.__scummClickObject = function clickObject(objectId) {
  * to track progress.
  */
 window.__scummDoSentence = function doSentence({ verb, objectA, objectB }) {
+  if (isConversationOpen()) return rejectDuringConversation("doSentence");
   if (typeof Module === "undefined" || !Module._agent_do_sentence) {
     console.warn("[SCUMM_BRIDGE] Module not ready for doSentence");
     return false;
